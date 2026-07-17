@@ -38,8 +38,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-size:var(--t-b
 .gnb-gsheet{padding:5px 11px;background:transparent;border:1px solid var(--border);border-radius:var(--r);font-size:var(--t-md);color:var(--text2);cursor:pointer;white-space:nowrap;transition:all .15s;letter-spacing:-.01em;display:flex;align-items:center;gap:5px;}
 .gnb-gsheet:hover{border-color:#34A853;color:#34A853;}
 /* ── GS MODAL ── */
-#gs-modal{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);align-items:center;justify-content:center;}
-#gs-modal.open{display:flex;}
+#gs-modal,#gs-import-modal{display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);align-items:center;justify-content:center;}
+#gs-modal.open,#gs-import-modal.open{display:flex;}
 .gs-modal-box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:24px;width:min(480px,90vw);display:flex;flex-direction:column;gap:14px;}
 .gs-modal-title{font-size:var(--t-lg);font-weight:700;color:var(--text);}
 .gs-modal-desc{font-size:var(--t-sm);color:var(--text3);line-height:1.6;}
@@ -110,7 +110,7 @@ select.form-input{cursor:pointer;-webkit-appearance:none;appearance:none;}
 
 /* ── LANG PILLS ── */
 .lang-pills{display:flex;gap:4px;margin-bottom:10px;}
-.lang-pill{flex:1;height:30px;display:flex;align-items:center;justify-content:center;white-space:nowrap;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:var(--t-sm);color:var(--text3);cursor:pointer;transition:all .15s;font-weight:500;letter-spacing:-.01em;}
+.lang-pill{flex:1;min-width:44px;height:30px;display:flex;align-items:center;justify-content:center;white-space:nowrap;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:var(--t-sm);color:var(--text3);cursor:pointer;transition:all .15s;font-weight:500;letter-spacing:-.01em;}
 .lang-pill:hover{color:var(--text2);}
 .lang-pill.active{background:rgba(200,241,53,.1);border-color:var(--accent);color:var(--accent);}
 
@@ -226,6 +226,26 @@ select.form-input{cursor:pointer;-webkit-appearance:none;appearance:none;}
   </div>
 </div>
 
+<!-- 구글 시트 가져오기 모달 -->
+<div id="gs-import-modal" onclick="if(event.target===this)closeGsImportModal()">
+  <div class="gs-modal-box">
+    <div class="gs-modal-title">구글 시트 가져오기</div>
+    <div class="gs-modal-desc">
+      Formly에서 내보낸 구글 시트의 URL을 붙여넣으세요.<br>
+      시트의 상품들이 현재 목록에 추가됩니다.
+    </div>
+    <input class="gs-url-input" id="gs-import-url-input" placeholder="https://docs.google.com/spreadsheets/d/…" />
+    <div id="gs-import-client-wrap" style="display:none;flex-direction:column;gap:8px">
+      <div class="gs-modal-desc" style="color:var(--danger);font-size:11px">OAuth Client ID가 아직 설정되지 않았어요. 아래에 입력해 주세요.</div>
+      <input class="gs-url-input" id="gs-import-client-id-input" placeholder="OAuth 2.0 클라이언트 ID (…apps.googleusercontent.com)" />
+    </div>
+    <div class="gs-modal-btns">
+      <button onclick="closeGsImportModal()">취소</button>
+      <button class="gs-save-btn" onclick="confirmGsImport()">가져오기</button>
+    </div>
+  </div>
+</div>
+
 <!-- Google Sheets OAuth 모달 -->
 <div id="gs-modal" onclick="if(event.target===this)closeGsModal()">
   <div class="gs-modal-box">
@@ -250,8 +270,9 @@ select.form-input{cursor:pointer;-webkit-appearance:none;appearance:none;}
     <div class="gnb-top">
       <div class="logo">Formly<span> / Simply Formed. Fully Done.</span></div>
       <div style="display:flex;gap:6px;align-items:center">
-        <button class="gnb-csv" onclick="exportFile()">내보내기</button>
-        <button class="gnb-gsheet" onclick="openGsModal()">구글 시트</button>
+        <button class="gnb-csv" onclick="exportFile()">Excel로 저장하기</button>
+        <button class="gnb-csv" onclick="openGsImportModal()">구글 시트 불러오기</button>
+        <button class="gnb-gsheet" onclick="openGsModal()">구글 시트 내보내기</button>
       </div>
     </div>
     <div class="gnb-nav">
@@ -392,11 +413,11 @@ var CAUTION_CARE={
 };
 
 var LANGS=[
-  {code:'ko',label:'국문',api:'ko'},
-  {code:'en',label:'English',api:'en'},
-  {code:'ja',label:'日本語',api:'ja'},
-  {code:'zh-cn',label:'中文(简体)',api:'zh-CN'},
-  {code:'zh-tw',label:'中文(繁體)',api:'zh-TW'}
+  {code:'ko',label:'KR',api:'ko'},
+  {code:'en',label:'EN',api:'en'},
+  {code:'ja',label:'JP',api:'ja'},
+  {code:'zh-cn',label:'CN',api:'zh-CN'},
+  {code:'zh-tw',label:'TW',api:'zh-TW'}
 ];
 
 var CSTYLES=[
@@ -1564,6 +1585,150 @@ function _applyGsFormatting(token,ssId,numRows){
   }).catch(function(e){showToast('서식 오류: '+e.message);});
 }
 
+// ═══════════════ GS IMPORT ═══════════════
+function openGsImportModal(){
+  var hasClient=!!localStorage.getItem(_OAUTH_CLIENT_KEY);
+  var wrap=document.getElementById('gs-import-client-wrap');
+  if(wrap) wrap.style.display=hasClient?'none':'flex';
+  document.getElementById('gs-import-url-input').value='';
+  document.getElementById('gs-import-modal').classList.add('open');
+}
+function closeGsImportModal(){document.getElementById('gs-import-modal').classList.remove('open');}
+
+function confirmGsImport(){
+  var url=(document.getElementById('gs-import-url-input').value||'').trim();
+  if(!url){showToast('구글 시트 URL을 입력하세요');return;}
+  var m=url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
+  var ssId=m?m[1]:url;
+  if(!ssId){showToast('올바른 구글 시트 URL을 입력하세요');return;}
+
+  var clientId=localStorage.getItem(_OAUTH_CLIENT_KEY);
+  var wrap=document.getElementById('gs-import-client-wrap');
+  if(!clientId||wrap.style.display!=='none'){
+    var inp=document.getElementById('gs-import-client-id-input');
+    var cid=(inp&&inp.value.trim())||'';
+    if(!cid){showToast('Client ID를 입력하세요');return;}
+    clientId=cid;
+    localStorage.setItem(_OAUTH_CLIENT_KEY,clientId);
+  }
+  closeGsImportModal();
+  _doOAuthImport(clientId,ssId);
+}
+
+function _doOAuthImport(clientId,ssId){
+  _loadGIS(function(){
+    try{
+      var tc=google.accounts.oauth2.initTokenClient({
+        client_id:clientId,
+        scope:'https://www.googleapis.com/auth/spreadsheets',
+        callback:function(resp){
+          if(resp.error){showToast('인증 오류: '+resp.error);return;}
+          _gsAccessToken=resp.access_token;
+          _readFromSheets(resp.access_token,ssId);
+        }
+      });
+      tc.requestAccessToken({prompt:_gsAccessToken?'':'select_account'});
+    }catch(e){showToast('OAuth 오류: '+e.message);}
+  });
+}
+
+function _readFromSheets(token,ssId){
+  showToast('구글 시트 읽는 중…');
+  fetch('https://sheets.googleapis.com/v4/spreadsheets/'+ssId+'/values/'+encodeURIComponent('상품정보'),{
+    headers:{'Authorization':'Bearer '+token}
+  }).then(function(r){
+    if(!r.ok) throw new Error('시트를 읽을 수 없어요. 권한 또는 URL을 확인해 주세요.');
+    return r.json();
+  }).then(function(data){
+    var rows=data.values||[];
+    var products=_parseSheetData(rows);
+    if(!products.length){showToast('가져올 데이터가 없어요');return;}
+    _importProducts(products);
+  }).catch(function(e){showToast(e.message||'가져오기 실패');});
+}
+
+var _IMPORT_LABEL_MAP={
+  '품명':'name','사이즈':'size','규격':'size','무게':'weight','사용연령':'age',
+  '구성':'contents','소재':'material','제조연월':'mfgDate','제조국':'origin',
+  '제조사':'mfr','수입사':'importer','판매원':'dist'
+};
+var _CAU_LABEL_SET={'주의사항':1,'Cautions':1,'ご使用上の注意':1,'注意事项':1,'注意事項':1};
+var _IMPORT_LANGS=['ko','en','ja','zh-cn','zh-tw'];
+
+function _parseSheetData(rows){
+  if(!rows||rows.length<2) return[];
+  var products=[];
+  var curProd=null;
+
+  function newProd(name){
+    curProd=mkProduct(name||'가져온 상품');
+    curProd.fields.forEach(function(f){f.hidden=true;});
+    products.push(curProd);
+  }
+  function getOrMakeField(defKey){
+    if(!curProd) newProd();
+    var f=curProd.fields.find(function(x){return x.defKey===defKey;});
+    if(!f){f=mkField(defKey);curProd.fields.push(f);}
+    f.hidden=false;
+    return f;
+  }
+  function stripSym(line){
+    return line.replace(/^(?:➀|➁|➂|➃|➄|➅|➆|➇|➈|➉|❶|❷|❸|❹|❺|❻|❼|❽|❾|❿|•|–|\d+[.)])\s*/,'').trim();
+  }
+
+  rows.forEach(function(row){
+    var c0=(row[0]||'').trim();
+    // 빈 행
+    if(!c0&&!row.slice(1).some(function(c){return(c||'').trim();})) return;
+    // 헤더 행 (항목/내용 포함)
+    if(c0.indexOf('항목')!==-1&&(row[1]||'').indexOf('내용')!==-1) return;
+    // 줄글 행
+    if(c0.indexOf('줄글')!==-1) return;
+    // 주의사항 행
+    if(_CAU_LABEL_SET[c0]){
+      if(!curProd) newProd();
+      _IMPORT_LANGS.forEach(function(l,li){
+        var txt=(row[li*2+1]||'').trim();
+        curProd.cautions.texts[l]=txt?txt.split('\n').map(stripSym).filter(Boolean):[];
+      });
+      return;
+    }
+    // 다중상품 이름 행: label 열들에 같은 이름 반복, value 열은 빔
+    var c2=(row[2]||'').trim();
+    var c1=(row[1]||'').trim();
+    if(c0&&!_IMPORT_LABEL_MAP[c0]&&!_CAU_LABEL_SET[c0]&&!c1&&c2===c0){
+      newProd(c0);return;
+    }
+    // 필드 행
+    var defKey=_IMPORT_LABEL_MAP[c0];
+    if(defKey){
+      if(defKey==='name'&&!curProd) newProd((row[1]||'').trim()||'가져온 상품');
+      var f=getOrMakeField(defKey);
+      if(defKey==='name'&&curProd) curProd.name=(row[1]||'').trim()||curProd.name;
+      _IMPORT_LANGS.forEach(function(l,li){
+        var val=(row[li*2+1]||'').trim();
+        if(val) f.values[l]=val;
+      });
+    }
+  });
+  // 단일 상품이고 이름이 기본값이면 품명 필드값으로 대체
+  products.forEach(function(p){
+    if(p.name==='가져온 상품'){
+      var nf=p.fields.find(function(f){return f.defKey==='name';});
+      if(nf&&nf.values.ko) p.name=nf.values.ko;
+    }
+  });
+  return products;
+}
+
+function _importProducts(products){
+  pushUndo();saveSnapshot('가져오기 직전');
+  products.forEach(function(p){S.products.push(p);});
+  S.cur=products[products.length-1].id;
+  save();renderSidebar();renderContent();
+  showToast(products.length+'개 상품을 가져왔어요 ✓');
+}
+
 // 우클릭으로 Client ID 재설정
 document.addEventListener('DOMContentLoaded',function(){
   var btn=document.querySelector('.gnb-gsheet');
@@ -1649,15 +1814,13 @@ function renderContent(){
 // ── 필드편집 ──
 function tabFields(p){
   return '<div style="display:flex;gap:6px;margin-bottom:14px;align-items:center;flex-wrap:wrap">'
+    +'<button class="preset-btn" id="btnTrAll" style="flex:none;padding:0 14px" onclick="trAll()">번역하기</button>'
+    +'<button class="preset-btn" style="flex:none;padding:0 14px;border-color:rgba(200,241,53,.5);color:var(--accent)" onclick="openPreview()">미리보기</button>'
+    +'<div style="flex:1"></div>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="undo()">실행취소</button>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="openHistoryModal()">저장기록</button>'
-    +'<div style="width:1px;height:16px;background:var(--border);margin:0 2px;flex-shrink:0"></div>'
-    +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="applyFieldPreset(\'global\')">국외 제작</button>'
-    +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="applyFieldPreset(\'domestic\')">국내 제작</button>'
-    +'<button class="preset-btn" style="flex:none;padding:0 14px;color:var(--danger);border-color:rgba(255,95,95,.3)" onclick="resetCurrentProduct()" title="현재 상품 초기화">초기화</button>'
-    +'<div style="flex:1"></div>'
-    +'<button class="preset-btn" id="btnTrAll" style="flex:none;padding:0 14px" onclick="trAll()">전체 번역</button>'
-    +'<button class="preset-btn" style="flex:none;padding:0 14px;border-color:rgba(200,241,53,.5);color:var(--accent)" onclick="openPreview()">미리보기</button>'
+    +'<button class="preset-btn" style="flex:none;padding:0 14px;border-color:rgba(200,241,53,.5);color:var(--accent)" onclick="saveFieldsSnapshot()">입력 저장</button>'
+    +'<button class="preset-btn" style="flex:none;padding:0 14px;color:var(--danger);border-color:rgba(255,95,95,.3)" onclick="resetCurrentProduct()">전체 초기화</button>'
     +'</div>'
     +'<div class="sect-hdr">상품 기본 정보</div>'
     +p.fields.map(function(f){return renderFieldCard(f);}).join('')
@@ -1894,18 +2057,17 @@ function tabSettings(){
   var mg=matGroups();
   var fs=S.settings.fieldSections||ALL_FS_KEYS.slice();
   var cv=S.settings.cauVersions||CAU_VER_DEF.map(function(v){return{v:v.v,l:v.l};});
-  var pills=LANGS.map(function(l){
-    return '<button class="lang-pill'+(l.code===lang?' active':'')+'" onclick="switchSettingsLang(\''+l.code+'\')">'+l.label+'</button>';
-  }).join('');
-  // 툴바
+  // 툴바 (왼쪽: 언어 버튼 / 오른쪽: 액션 버튼)
   var html='<div style="display:flex;gap:6px;margin-bottom:14px;align-items:center;flex-wrap:wrap">'
+    +LANGS.map(function(l){
+      return '<button class="lang-pill'+(l.code===lang?' active':'')+'" style="flex:none" onclick="switchSettingsLang(\''+l.code+'\')">'+l.label+'</button>';
+    }).join('')
+    +'<div style="flex:1"></div>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="undo()">실행취소</button>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="openHistoryModal()">저장기록</button>'
-    +'<div style="flex:1"></div>'
-    +'<button class="preset-btn" style="flex:none;padding:0 14px;border-color:rgba(200,241,53,.5);color:var(--accent)" onclick="saveSettingsSnapshot()">설정 저장</button>'
+    +'<button class="preset-btn" style="flex:none;padding:0 14px;border-color:rgba(200,241,53,.5);color:var(--accent)" onclick="saveSettingsSnapshot()">입력 저장</button>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px;color:var(--danger);border-color:rgba(255,95,95,.3)" onclick="resetAllSettings()">전체 초기화</button>'
     +'</div>';
-  html+='<div class="lang-pills" style="margin-bottom:14px">'+pills+'</div>';
   html+='<div class="sect-hdr">상품 기본 정보</div>';
 
   // ── 동적 필드 섹션 루프 ──
@@ -2026,9 +2188,15 @@ function tabSettings(){
   return html;
 }
 
+function saveFieldsSnapshot(){
+  var p=cur();
+  pushUndo();
+  saveSnapshot('입력 저장 — '+(p?p.name:''));
+  showToast('현재 입력이 저장됐어요');
+}
 function saveSettingsSnapshot(){
   pushUndo();
-  saveSnapshot('설정 저장');
+  saveSnapshot('입력 저장 — 기본설정');
   showToast('현재 설정이 저장됐어요');
 }
 function resetAllSettings(){
