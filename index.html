@@ -250,8 +250,6 @@ select.form-input{cursor:pointer;-webkit-appearance:none;appearance:none;}
     <div class="gnb-top">
       <div class="logo">Formly<span> / Simply Formed. Fully Done.</span></div>
       <div style="display:flex;gap:6px;align-items:center">
-        <button class="gnb-csv" onclick="undo()" title="되돌리기 (Ctrl+Z)">실행취소</button>
-        <button class="gnb-csv" onclick="openHistoryModal()">저장기록</button>
         <button class="gnb-csv" onclick="exportFile()">내보내기</button>
         <button class="gnb-gsheet" onclick="openGsModal()">구글 시트</button>
       </div>
@@ -334,20 +332,57 @@ var FIELD_DEFS=[
 
 var CAU_LBL={ko:'주의사항',en:'Cautions',ja:'ご使用上の注意','zh-cn':'注意事项','zh-tw':'注意事項'};
 
-var CAUTION_FULL={
+// ─── 주의사항 버전별 기본 문구 ───
+// 인형 (8개)
+var CAUTION_DOLL={
   ko:['본 제품은 완구가 아닙니다.','과도한 힘을 가하거나 뜯지 마십시오.','제품에서 작은 조각이 분리될 경우 삼키지 마십시오.','어린이, 유아 및 반려동물이 제품을 빨거나 물어뜯지 않도록 하십시오.','날카로운 물체와의 접촉을 피하십시오.','고온·다습한 곳, 물, 직사광선 및 화기를 피해 사용·보관하십시오.','세탁하지 마십시오.','용도 외 사용을 금합니다.'],
   en:['This product is not a toy.','Do not apply excessive force or pull the product apart.','If small parts become detached from the product, do not swallow them.','Do not allow children, infants, or pets to suck or bite on the product.','Avoid contact with sharp objects.','Keep away from high temperatures, high humidity, water, direct sunlight, and fire during use and storage.','Do not wash.','Use only for its intended purpose.'],
   ja:['本製品は玩具ではありません。','過度な力を加えたり、引っ張ったりしないでください。','製品から小さな部品が外れた場合、誤って飲み込まないようご注意ください。','乳幼児、お子様、ペットが本製品を口に入れたり、噛んだりしないようご注意ください。','尖ったものとの接触を避けてください。','高温・多湿な場所、水、直射日光、火気を避けて使用・保管してください。','洗濯しないでください。','用途以外でのご使用はおやめください。'],
-  'zh-cn':['本产品非玩具。','请勿让婴儿、儿童或宠物吮吸或啃咬本产品。','请勿将本产品与尖锐物品一同放置。','请避免在高温、潮湿环境下使用或存放本产品。','请注意避免本产品受潮或进水。','请避免将本产品置于阳光直射处或靠近火源。','请勿水洗。','禁止用于非指定用途。'],
-  'zh-tw':['本產品非玩具。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品。','請勿將本產品與尖銳物品一同放置。','請避免在高溫、潮濕環境下使用或存放本產品。','請注意避免本產品受潮或進水。','請避免將本產品置於陽光直射處或靠近火源。','請勿水洗。','禁止用於非指定用途。']
+  'zh-cn':['本产品非玩具。','请勿让婴儿、儿童或宠物吮吸或啃咬本产品，避免引起窒息。','请勿将本产品与尖锐物品一同放置, 以免造成损坏。','请避免在高温、潮湿环境下使用或存放本产品。','请注意避免本产品受潮或进水。','请避免将本产品置于阳光直射处或靠近火源，以防止变形或褪色。','请勿水洗。','禁止用于非指定用途。'],
+  'zh-tw':['本產品非玩具。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品，以免造成窒息危險。','請勿將本產品與尖銳物品一同放置，以免造成損壞。','請避免在高溫、潮濕環境下使用或存放本產品。','請注意避免本產品受潮或進水。','請避免將本產品置於陽光直射處或靠近火源，以防止變形或褪色。','請勿水洗。','禁止用於非指定用途。']
 };
+// 지류 및 잡화 (7개)
+var CAUTION_PAPER={
+  ko:['본 제품은 완구가 아닙니다.','과도한 힘을 가하거나 뜯지 마십시오.','제품에서 작은 조각이 분리될 경우 삼키지 마십시오.','어린이, 유아 및 반려동물이 제품을 빨거나 물어뜯지 않도록 하십시오.','날카로운 물체와의 접촉을 피하십시오.','고온·다습한 곳, 물, 직사광선 및 화기를 피해 사용·보관하십시오.','용도 외 사용을 금합니다.'],
+  en:['This product is not a toy.','Do not apply excessive force or pull the product apart.','If small parts become detached from the product, do not swallow them.','Do not allow children, infants, or pets to suck or bite on the product.','Avoid contact with sharp objects.','Keep away from high temperatures, high humidity, water, direct sunlight, and fire during use and storage.','Do not use for purposes other than intended.'],
+  ja:['本製品は玩具ではありません。','過度な力を加えたり、引っ張ったりしないでください。','製品から小さな部品が外れた場合、誤って飲み込まないようにご注意ください。','乳幼児、お子様、ペットが本製品を口に入れたり、噛んだりしないようにご注意ください。','尖ったものとの接触を避けてください。','高温・多湿な場所、水、直射日光、火気を避けて使用・保管してください。','用途以外でのご使用はおやめください。'],
+  'zh-cn':['本产品非玩具。','请勿让婴儿、儿童或宠物吮吸或啃咬本产品，避免引起窒息。','请勿将本产品与尖锐物品一同放置, 以免造成损坏。','请避免在高温、潮湿环境下使用或存放本产品。','请注意避免本产品受潮或进水。','请避免将本产品置于阳光直射处或靠近火源，以防止变形或褪色。','禁止用于非指定用途。'],
+  'zh-tw':['本產品非玩具。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品，以免造成窒息危險。','請勿將本產品與尖銳物品一同放置，以免造成損壞。','請避免在高溫、潮濕環境下使用或存放本產品。','請注意避免本產品受潮或進水。','請避免將本產品置於陽光直射處或靠近火源，以防止變形或褪色。','禁止用於非指定用途。']
+};
+// 아크릴류 (8개)
+var CAUTION_ACRYLIC={
+  ko:['본 제품은 완구가 아닙니다.','과도한 힘을 가하거나 뜯지 마십시오.','제품에서 작은 조각이 분리될 경우 삼키지 마십시오.','어린이, 유아 및 반려동물이 제품을 빨거나 물어뜯지 않도록 하십시오.','날카로운 물체와의 접촉을 피하십시오.','고온·다습한 곳, 물, 직사광선 및 화기를 피해 사용·보관하십시오.','용도 외 사용을 금합니다.','보호필름이 부착되어 있으니 제거 후 사용하십시오.'],
+  en:['This product is not a toy.','Do not apply excessive force or pull the product apart.','If small parts become detached from the product, do not swallow them.','Do not allow children, infants, or pets to suck or bite on the product.','Avoid contact with sharp objects.','Keep away from high temperatures, high humidity, water, direct sunlight, and fire during use and storage.','Do not use for purposes other than intended.','A protective film is attached. Please remove it before use.'],
+  ja:['本製品は玩具ではありません。','過度な力を加えたり、引っ張ったりしないでください。','製品から小さな部品が外れた場合、誤って飲み込まないようにご注意ください。','乳幼児、お子様、ペットが本製品を口に入れたり、噛んだりしないようにご注意ください。','尖ったものとの接触を避けてください。','高温・多湿な場所、水、直射日光、火気を避けて使用・保管してください。','用途以外でのご使用はおやめください。','保護フィルムが貼られていますので、剥がしてからご使用ください。'],
+  'zh-cn':['本产品非玩具。','请勿让婴儿、儿童或宠物吮吸或啃咬本产品，避免引起窒息。','请勿将本产品与尖锐物品一同放置, 以免造成损坏。','请避免在高温、潮湿环境下使用或存放本产品。','请注意避免本产品受潮或进水。','请避免将本产品置于阳光直射处或靠近火源，以防止变形或褪色。','禁止用于非指定用途。','产品附有保护膜，请撕除后再使用。'],
+  'zh-tw':['本產品非玩具。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品，以免造成窒息危險。','請勿將本產品與尖銳物品一同放置，以免造成損壞。','請避免在高溫、潮濕環境下使用或存放本產品。','請注意避免本產品受潮或進水。','請避免將本產品置於陽光直射處或靠近火源，以防止變形或褪色。','禁止用於非指定用途。','產品附有保護膜，請撕除後再使用。']
+};
+// 양말 및 데스크매트 (8개)
+var CAUTION_TEXTILE={
+  ko:['본 제품은 완구가 아닙니다.','과도한 힘을 가하거나 뜯지 마십시오.','제품에서 작은 조각이 분리될 경우 삼키지 마십시오.','어린이, 유아 및 반려동물이 제품을 빨거나 물어뜯지 않도록 하십시오.','날카로운 물체와의 접촉을 피하십시오.','고온·다습한 곳, 물, 직사광선 및 화기를 피해 사용·보관하십시오.','용도 외 사용을 금합니다.','오염 시 중성세제를 사용하여 손세척해 주십시오. 세탁기 및 건조기 사용은 피하여 주십시오.'],
+  en:['This product is not a toy.','Do not apply excessive force or pull the product apart.','If small parts become detached from the product, do not swallow them.','Do not allow children, infants, or pets to suck or bite on the product.','Avoid contact with sharp objects.','Keep away from high temperatures, high humidity, water, direct sunlight, and fire during use and storage.','Do not use for purposes other than intended.','If the product becomes soiled, hand wash it with a mild detergent. Do not use a washing machine or tumble dryer.'],
+  ja:['本製品は玩具ではありません。','過度な力を加えたり、引っ張ったりしないでください。','製品から小さな部品が外れた場合、誤って飲み込まないようにご注意ください。','乳幼児、お子様、ペットが本製品を口に入れたり、噛んだりしないようにご注意ください。','尖ったものとの接触を避けてください。','高温・多湿な場所、水、直射日光、火気を避けて使用・保管してください。','用途以外でのご使用はおやめください。','汚れた場合は、中性洗剤を使用して手洗いしてください。洗濯機および乾燥機の使用はお避けください。'],
+  'zh-cn':['本产品非玩具。','请勿让婴儿、儿童或宠物吮吸或啃咬本产品，避免引起窒息。','请勿将本产品与尖锐物品一同放置, 以免造成损坏。','请避免在高温、潮湿环境下使用或存放本产品。','请注意避免本产品受潮或进水。','请避免将本产品置于阳光直射处或靠近火源，以防止变形或褪色。','禁止用于非指定用途。','如产品沾污，请使用中性洗涤剂手洗。请勿使用洗衣机或烘干机。'],
+  'zh-tw':['本產品非玩具。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品，以免造成窒息危險。','請勿將本產品與尖銳物品一同放置，以免造成損壞。','請避免在高溫、潮濕環境下使用或存放本產品。','請注意避免本產品受潮或進水。','請避免將本產品置於陽光直射處或靠近火源，以防止變形或褪色。','禁止用於非指定用途。','如產品沾污，請使用中性洗滌劑手洗。請勿使用洗衣機或烘乾機。']
+};
+// 티셔츠 (8개)
+var CAUTION_TSHIRT={
+  ko:['본 제품은 완구가 아닙니다.','과도한 힘을 가하거나 뜯지 마십시오.','제품에서 작은 조각이 분리될 경우 삼키지 마십시오.','어린이, 유아 및 반려동물이 제품을 빨거나 물어뜯지 않도록 하십시오.','날카로운 물체와의 접촉을 피하십시오.','고온·다습한 곳, 물, 직사광선 및 화기를 피해 사용·보관하십시오.','용도 외 사용을 금합니다.','제품에 부착된 케어라벨(취급주의사항)에 표시된 세탁방법에 따라 세탁해 주십시오.'],
+  en:['This product is not a toy.','Do not apply excessive force or pull the product apart.','If small parts become detached from the product, do not swallow them.','Do not allow children, infants, or pets to suck or bite on the product.','Avoid contact with sharp objects.','Keep away from high temperatures, high humidity, water, direct sunlight, and fire during use and storage.','Do not use for purposes other than intended.','Please wash the product according to the care instructions on the attached care label.'],
+  ja:['本製品は玩具ではありません。','過度な力を加えたり、引っ張ったりしないでください。','製品から小さな部品が外れた場合、誤って飲み込まないようにご注意ください。','乳幼児、お子様、ペットが本製品を口に入れたり、噛んだりしないようにご注意ください。','尖ったものとの接触を避けてください。','高温・多湿な場所、水、直射日光、火気を避けて使用・保管してください。','用途以外でのご使用はおやめください。','製品に付いているケアラベル（取扱い表示）に記載された洗濯方法に従って洗濯してください。'],
+  'zh-cn':['本产品非玩具。','请勿让婴儿、儿童或宠物吮吸或啃咬本产品，避免引起窒息。','请勿将本产品与尖锐物品一同放置, 以免造成损坏。','请避免在高温、潮湿环境下使用或存放本产品。','请注意避免本产品受潮或进水。','请避免将本产品置于阳光直射处或靠近火源，以防止变形或褪色。','禁止用于非指定用途。','请按照产品所附洗涤护理标签上的洗涤说明进行洗涤。'],
+  'zh-tw':['本產品非玩具。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品，以免造成窒息危險。','請勿將本產品與尖銳物品一同放置，以免造成損壞。','請避免在高溫、潮濕環境下使用或存放本產品。','請注意避免本產品受潮或進水。','請避免將本產品置於陽光直射處或靠近火源，以防止變形或褪色。','禁止用於非指定用途。','請按照產品所附洗滌護理標籤上的洗滌說明進行洗滌。']
+};
+// 심플 (2개)
 var CAUTION_SIMPLE={
   ko:['본 제품은 만 14세 이상 분들을 위한 상품으로, 어린이용이 아닙니다.','본 제품은 공정거래위원회 고시 「소비자분쟁해결기준」에 따라 교환 또는 보상을 받으실 수 있습니다.'],
-  en:['This product is intended for users aged 14 and over and is not intended for children.','This product may be exchanged or compensated in accordance with the Consumer Dispute Resolution Standards of the Korea Fair Trade Commission.'],
+  en:['This product is intended for users aged 14 and over and is not a toy for children.','This product may be exchanged or refunded as per the Consumer Dispute Resolution Standards of the Korea Fair Trade Commission.'],
   ja:['本製品は14歳以上の方を対象とした商品であり、子ども向けではありません。','本製品は公正取引委員会が定める「消費者紛争解決基準」に基づき、交換または補償を受けることができます。'],
   'zh-cn':['本产品适用于14岁及以上人士，不适合儿童使用。','本产品可依据韩国公正交易委员会发布的「消费者纠纷解决标准」申请退换或赔偿。'],
   'zh-tw':['本產品適用於14歲及以上人士，不適合兒童使用。','本產品可依據韓國公平交易委員會公告之「消費者糾紛解決基準」申請退換或賠償。']
 };
+// 구버전 호환용 (full=인형, care 유지)
+var CAUTION_FULL=CAUTION_DOLL;
 var CAUTION_CARE={
   ko:['찬물(30℃ 이하)에서 단독으로 손세탁 하십시오.','표백제 사용을 금합니다.','건조기 사용을 금합니다.','다림질을 금합니다.','드라이클리닝을 금합니다.'],
   en:['Hand wash separately in cold water (below 30°C).','Do not bleach.','Do not tumble dry.','Do not iron.','Do not dry clean.'],
@@ -451,7 +486,14 @@ var ALL_FS_KEYS=['name','size','weight','age','contents','material','mfgDate','o
 var FS_LABELS_MAP={name:'품명',size:'사이즈',weight:'무게',age:'사용연령',contents:'구성',material:'소재',mfgDate:'제조연월',origin:'제조국',mfr:'제조사',importer:'수입사',dist:'판매원'};
 var FS_ADD_LABEL={ageOptions:'사용연령 추가',originOptions:'제조국 추가',mfrOptions:'제조사 추가',importerOptions:'수입사 추가',distOptions:'판매원 추가'};
 var DROP_FS_MAP={age:['ageOptions','age'],origin:['originOptions','origin'],mfr:['mfrOptions','mfr'],importer:['importerOptions','importer'],dist:['distOptions','dist']};
-var CAU_VER_DEF=[{v:'full',l:'풀버전'},{v:'simple',l:'심플버전'},{v:'care',l:'케어라벨'}];
+var CAU_VER_DEF=[
+  {v:'doll',l:'인형'},
+  {v:'paper',l:'지류 및 잡화'},
+  {v:'acrylic',l:'아크릴류'},
+  {v:'textile',l:'양말 및 데스크매트'},
+  {v:'tshirt',l:'티셔츠'},
+  {v:'simple',l:'심플'}
+];
 
 // ═══════════════ STATE ═══════════════
 var S={
@@ -518,13 +560,22 @@ function applyPresetToVals(vals,koVal){
   if(tr){['en','ja','zh-cn','zh-tw'].forEach(function(l){vals[l]=tr[l]||koVal;});}
   else{['en','ja','zh-cn','zh-tw'].forEach(function(l){vals[l]=koVal;});}
 }
+var _CAU_SRC_MAP={doll:null,paper:null,acrylic:null,textile:null,tshirt:null,simple:null,full:null,care:null};
+function _getCauDefault(ver){
+  if(ver==='doll')    return CAUTION_DOLL;
+  if(ver==='paper')   return CAUTION_PAPER;
+  if(ver==='acrylic') return CAUTION_ACRYLIC;
+  if(ver==='textile') return CAUTION_TEXTILE;
+  if(ver==='tshirt')  return CAUTION_TSHIRT;
+  if(ver==='simple')  return CAUTION_SIMPLE;
+  if(ver==='full')    return CAUTION_FULL;
+  if(ver==='care')    return CAUTION_CARE;
+  return CAUTION_DOLL;
+}
 function getCauSrc(ver){
   var tmpl=S.settings.cauTemplates;
   if(tmpl&&tmpl[ver]) return tmpl[ver];
-  if(ver==='full') return CAUTION_FULL;
-  if(ver==='simple') return CAUTION_SIMPLE;
-  if(ver==='care') return CAUTION_CARE;
-  return CAUTION_FULL;
+  return _getCauDefault(ver);
 }
 function isCopyAsIs(key){return key==='mfgDate'||key==='mfr'||key==='importer'||key==='dist'||key==='size'||key==='weight';}
 
@@ -626,8 +677,13 @@ function loadSaved(){
   if(!S.settings.weightUnits) S.settings.weightUnits=['mg','g','kg'];
   if(!S.settings.weightDefaultUnit) S.settings.weightDefaultUnit='g';
   if(!S.settings.fieldSections) S.settings.fieldSections=ALL_FS_KEYS.slice();
-  if(!S.settings.cauVersions) S.settings.cauVersions=CAU_VER_DEF.map(function(v){return{v:v.v,l:v.l};});
-  if(!S.settings.defaultCauVersion) S.settings.defaultCauVersion=(S.settings.cauVersions&&S.settings.cauVersions[0])?S.settings.cauVersions[0].v:'full';
+  // 구버전(full/simple/care) → 신버전 마이그레이션
+  var _hasOldVersions=S.settings.cauVersions&&S.settings.cauVersions.some(function(v){return v.v==='full'||v.v==='care';});
+  if(!S.settings.cauVersions||_hasOldVersions){
+    S.settings.cauVersions=CAU_VER_DEF.map(function(v){return{v:v.v,l:v.l};});
+    S.settings.defaultCauVersion=CAU_VER_DEF[0].v;
+  }
+  if(!S.settings.defaultCauVersion) S.settings.defaultCauVersion=(S.settings.cauVersions&&S.settings.cauVersions[0])?S.settings.cauVersions[0].v:CAU_VER_DEF[0].v;
   if(!S.settings.materialGroups){
     S.settings.materialGroups=JSON.parse(JSON.stringify(MATERIAL_OPTS));
   } else {
@@ -639,13 +695,27 @@ function loadSaved(){
     });
   }
   if(!S.settings.optTr) S.settings.optTr={};
-  if(!S.settings.cauTemplates) S.settings.cauTemplates={
-    full:  {ko:CAUTION_FULL.ko.slice(),  en:CAUTION_FULL.en.slice(),  ja:CAUTION_FULL.ja.slice(),  'zh-cn':CAUTION_FULL['zh-cn'].slice(),  'zh-tw':CAUTION_FULL['zh-tw'].slice()},
-    simple:{ko:CAUTION_SIMPLE.ko.slice(),en:CAUTION_SIMPLE.en.slice(),ja:CAUTION_SIMPLE.ja.slice(),'zh-cn':CAUTION_SIMPLE['zh-cn'].slice(),'zh-tw':CAUTION_SIMPLE['zh-tw'].slice()},
-    care:  {ko:CAUTION_CARE.ko.slice(),  en:CAUTION_CARE.en.slice(),  ja:CAUTION_CARE.ja.slice(),  'zh-cn':CAUTION_CARE['zh-cn'].slice(),  'zh-tw':CAUTION_CARE['zh-tw'].slice()}
-  };
+  if(!S.settings.cauTemplates||_hasOldVersions){
+    var _ct={};
+    CAU_VER_DEF.forEach(function(vd){
+      var src=_getCauDefault(vd.v);
+      _ct[vd.v]={ko:src.ko.slice(),en:src.en.slice(),ja:src.ja.slice(),'zh-cn':src['zh-cn'].slice(),'zh-tw':src['zh-tw'].slice()};
+    });
+    S.settings.cauTemplates=_ct;
+  } else {
+    // 신규 버전 누락 시 자동 추가
+    CAU_VER_DEF.forEach(function(vd){
+      if(!S.settings.cauTemplates[vd.v]){
+        var src=_getCauDefault(vd.v);
+        S.settings.cauTemplates[vd.v]={ko:src.ko.slice(),en:src.en.slice(),ja:src.ja.slice(),'zh-cn':src['zh-cn'].slice(),'zh-tw':src['zh-tw'].slice()};
+      }
+    });
+  }
   if(!S.products.length){var p=mkProduct('새 상품');S.products.push(p);S.cur=p.id;}
+  var _oldVerSet={full:true,simple:true,care:true};
   S.products.forEach(function(p){
+    // 구버전 주의사항 버전 → 신버전으로 마이그레이션
+    if(p.cautions&&_oldVerSet[p.cautions.version]) p.cautions.version=CAU_VER_DEF[0].v;
     p.fields.forEach(function(f){
       if(f.defKey==='size'&&!f.unit) f.unit='mm';
       if(f.defKey==='weight'&&!f.unit) f.unit='g';
@@ -1513,7 +1583,7 @@ function genTextProse(p,lang){
   return parts.join(' / ');
 }
 function genTextLines(p,lang){
-  var lines=p.fields.filter(function(f){return !f.hidden;}).map(function(f){return getLabel(f,lang)+'  '+fmtWithUnit(getFieldVal(f,lang),f.unit);});
+  var lines=p.fields.filter(function(f){return !f.hidden;}).map(function(f){return getLabel(f,lang)+' '+fmtWithUnit(getFieldVal(f,lang),f.unit);});
   lines.push(CAU_LBL[lang]);
   p.cautions.texts[lang].forEach(function(t,i){lines.push(getSym(p.cautions.style,i)+' '+t);});
   return lines.join('\n');
@@ -1579,6 +1649,9 @@ function renderContent(){
 // ── 필드편집 ──
 function tabFields(p){
   return '<div style="display:flex;gap:6px;margin-bottom:14px;align-items:center;flex-wrap:wrap">'
+    +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="undo()">실행취소</button>'
+    +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="openHistoryModal()">저장기록</button>'
+    +'<div style="width:1px;height:16px;background:var(--border);margin:0 2px;flex-shrink:0"></div>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="applyFieldPreset(\'global\')">국외 제작</button>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="applyFieldPreset(\'domestic\')">국내 제작</button>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px;color:var(--danger);border-color:rgba(255,95,95,.3)" onclick="resetCurrentProduct()" title="현재 상품 초기화">초기화</button>'
@@ -1824,7 +1897,15 @@ function tabSettings(){
   var pills=LANGS.map(function(l){
     return '<button class="lang-pill'+(l.code===lang?' active':'')+'" onclick="switchSettingsLang(\''+l.code+'\')">'+l.label+'</button>';
   }).join('');
-  var html='<div class="lang-pills" style="margin-bottom:14px">'+pills+'</div>';
+  // 툴바
+  var html='<div style="display:flex;gap:6px;margin-bottom:14px;align-items:center;flex-wrap:wrap">'
+    +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="undo()">실행취소</button>'
+    +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="openHistoryModal()">저장기록</button>'
+    +'<div style="flex:1"></div>'
+    +'<button class="preset-btn" style="flex:none;padding:0 14px;border-color:rgba(200,241,53,.5);color:var(--accent)" onclick="saveSettingsSnapshot()">설정 저장</button>'
+    +'<button class="preset-btn" style="flex:none;padding:0 14px;color:var(--danger);border-color:rgba(255,95,95,.3)" onclick="resetAllSettings()">전체 초기화</button>'
+    +'</div>';
+  html+='<div class="lang-pills" style="margin-bottom:14px">'+pills+'</div>';
   html+='<div class="sect-hdr">상품 기본 정보</div>';
 
   // ── 동적 필드 섹션 루프 ──
@@ -1945,6 +2026,19 @@ function tabSettings(){
   return html;
 }
 
+function saveSettingsSnapshot(){
+  pushUndo();
+  saveSnapshot('설정 저장');
+  showToast('현재 설정이 저장됐어요');
+}
+function resetAllSettings(){
+  if(!confirm('모든 기본 설정을 초기화할까요?\n(상품 데이터는 유지됩니다)')) return;
+  pushUndo();saveSnapshot('설정 초기화 직전');
+  S.settings={};
+  loadSaved();
+  showToast('기본 설정이 초기화됐어요 (Ctrl+Z로 되돌리기 가능)');
+}
+
 // ═══════════════ CAUTION TEMPLATE ACTIONS ═══════════════
 function toggleCauVerSection(ver){_cauVerOpen[ver]=!_cauVerOpen[ver];renderContent();}
 function moveCauTmplItem(ver,lang,i,dir){
@@ -1959,7 +2053,8 @@ function addCauTmplItem(ver,lang){
   setTimeout(function(){var ls=document.querySelectorAll('[data-ctmpl="'+ver+'_'+lang+'"]');if(ls.length)ls[ls.length-1].focus();},60);
 }
 function resetCauTmpl(ver){
-  var src=ver==='full'?CAUTION_FULL:ver==='simple'?CAUTION_SIMPLE:CAUTION_CARE;
+  var src=_getCauDefault(ver);
+  if(!S.settings.cauTemplates[ver]) S.settings.cauTemplates[ver]={};
   ['ko','en','ja','zh-cn','zh-tw'].forEach(function(l){S.settings.cauTemplates[ver][l]=src[l].slice();});
   save();renderContent();showToast('기본값으로 초기화됨');
 }
