@@ -76,7 +76,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-size:var(--t-b
 .prod-item-del:hover{color:var(--danger);}
 .prod-name-edit{flex:1;min-width:0;background:var(--surface2);border:1px solid var(--accent);border-radius:2px;padding:2px 5px;font-size:var(--t-sm);color:var(--text);outline:none;}
 .sidebar-foot{padding:6px;flex-shrink:0;border-top:1px solid var(--border);}
-.sidebar-add-btn{width:100%;height:28px;background:transparent;border:1px dashed var(--border);border-radius:var(--r);font-size:var(--t-sm);color:var(--text3);cursor:pointer;transition:all .15s;letter-spacing:-.01em;}
+.sidebar-add-btn{width:100%;height:28px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:var(--t-sm);color:var(--text2);cursor:pointer;transition:all .15s;letter-spacing:-.01em;}
 .sidebar-add-btn:hover{border-color:var(--accent);color:var(--accent);}
 .main-content{flex:1;min-width:0;display:flex;flex-direction:column;overflow:hidden;}
 
@@ -215,6 +215,17 @@ select.form-input{cursor:pointer;-webkit-appearance:none;appearance:none;}
 </style>
 </head>
 <body>
+<!-- 기록/복원 모달 -->
+<div id="historyModal" class="modal-overlay" onclick="if(event.target===this)closeHistoryModal()">
+  <div class="modal-box" style="max-width:400px">
+    <div class="modal-header">
+      <div class="modal-title">저장 기록</div>
+      <button class="modal-close" onclick="closeHistoryModal()">✕</button>
+    </div>
+    <div class="modal-body" id="historyModalBody"></div>
+  </div>
+</div>
+
 <!-- Google Sheets OAuth 모달 -->
 <div id="gs-modal" onclick="if(event.target===this)closeGsModal()">
   <div class="gs-modal-box">
@@ -238,7 +249,9 @@ select.form-input{cursor:pointer;-webkit-appearance:none;appearance:none;}
   <div class="gnb">
     <div class="gnb-top">
       <div class="logo">Formly<span> / Simply Formed. Fully Done.</span></div>
-      <div style="display:flex;gap:6px">
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="gnb-csv" onclick="undo()" title="되돌리기 (Ctrl+Z)">실행취소</button>
+        <button class="gnb-csv" onclick="openHistoryModal()">저장기록</button>
         <button class="gnb-csv" onclick="exportFile()">내보내기</button>
         <button class="gnb-gsheet" onclick="openGsModal()">구글 시트</button>
       </div>
@@ -517,6 +530,81 @@ function isCopyAsIs(key){return key==='mfgDate'||key==='mfr'||key==='importer'||
 
 // ═══════════════ PERSIST ═══════════════
 function save(){try{localStorage.setItem('mdspec_v5',JSON.stringify({products:S.products,cur:S.cur,settings:S.settings}));}catch(e){}}
+
+// ── 되돌리기 (Undo) ──
+var _undoStack=[];
+var _MAX_UNDO=30;
+function _snapState(){return JSON.stringify({products:S.products,cur:S.cur,settings:S.settings});}
+function pushUndo(){_undoStack.push(_snapState());if(_undoStack.length>_MAX_UNDO)_undoStack.shift();}
+function undo(){
+  if(!_undoStack.length){showToast('더 이상 되돌릴 수 없어요');return;}
+  var state=JSON.parse(_undoStack.pop());
+  S.products=state.products;S.cur=state.cur;if(state.settings)S.settings=state.settings;
+  save();renderSidebar();renderContent();showToast('되돌렸어요 ('+_undoStack.length+'단계 남음)');
+}
+document.addEventListener('keydown',function(e){
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){
+    var tag=(document.activeElement||{}).tagName;
+    if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return; // 입력 중엔 기본 동작
+    e.preventDefault();undo();
+  }
+});
+
+// ── 스냅샷 (자동 저장) ──
+var _SNAP_KEY='formly_snapshots';
+var _MAX_SNAPS=10;
+function saveSnapshot(label){
+  try{
+    var snaps=JSON.parse(localStorage.getItem(_SNAP_KEY)||'[]');
+    snaps.unshift({ts:Date.now(),label:label||'자동 저장',data:_snapState()});
+    snaps=snaps.slice(0,_MAX_SNAPS);
+    localStorage.setItem(_SNAP_KEY,JSON.stringify(snaps));
+  }catch(e){}
+}
+function getSnapshots(){try{return JSON.parse(localStorage.getItem(_SNAP_KEY)||'[]');}catch(e){return[];}}
+function restoreSnapshot(ts){
+  var snaps=getSnapshots();
+  var snap=snaps.find(function(s){return s.ts===ts;});
+  if(!snap)return;
+  pushUndo();
+  var d=JSON.parse(snap.data);
+  S.products=d.products;S.cur=d.cur;if(d.settings)S.settings=d.settings;
+  save();renderSidebar();renderContent();
+  closeHistoryModal();showToast('복원 완료');
+}
+function openHistoryModal(){
+  var snaps=getSnapshots();
+  var body=document.getElementById('historyModalBody');
+  if(!snaps.length){body.innerHTML='<div style="color:var(--text3);font-size:var(--t-sm);text-align:center;padding:20px">저장된 기록이 없어요</div>';
+  }else{
+    body.innerHTML=snaps.map(function(s){
+      var d=new Date(s.ts);
+      var fmt=d.getFullYear()+'.'+(d.getMonth()+1<10?'0':'')+(d.getMonth()+1)+'.'+
+        (d.getDate()<10?'0':'')+d.getDate()+' '+(d.getHours()<10?'0':'')+d.getHours()+':'+(d.getMinutes()<10?'0':'')+d.getMinutes();
+      var prodNames=JSON.parse(s.data).products.map(function(p){return p.name;}).join(', ');
+      return '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">'
+        +'<div style="flex:1;min-width:0">'
+        +'<div style="font-size:var(--t-sm);color:var(--text2);font-weight:600">'+eh(s.label)+'</div>'
+        +'<div style="font-size:var(--t-xs);color:var(--text3);margin-top:2px">'+fmt+' · '+eh(prodNames)+'</div>'
+        +'</div>'
+        +'<button onclick="restoreSnapshot('+s.ts+')" style="padding:4px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:var(--t-sm);color:var(--text2);cursor:pointer;white-space:nowrap;flex-shrink:0" onmouseover="this.style.borderColor=\'var(--accent)\';this.style.color=\'var(--accent)\'" onmouseout="this.style.borderColor=\'\';this.style.color=\'\'">복원</button>'
+        +'</div>';
+    }).join('');
+  }
+  document.getElementById('historyModal').classList.add('open');
+}
+function closeHistoryModal(){document.getElementById('historyModal').classList.remove('open');}
+
+// ── 현재 상품 초기화 ──
+function resetCurrentProduct(){
+  var p=cur();if(!p)return;
+  if(!confirm('"'+p.name+'" 상품의 모든 입력값을 초기화할까요?'))return;
+  pushUndo();saveSnapshot('초기화 직전 — '+p.name);
+  var fresh=mkProduct(p.name);
+  var idx=S.products.findIndex(function(x){return x.id===p.id;});
+  fresh.id=p.id;S.products[idx]=fresh;
+  save();renderContent();showToast('초기화 완료 (Ctrl+Z로 되돌리기 가능)');
+}
 
 function loadSaved(){
   try{
@@ -856,6 +944,7 @@ function render(){renderContent();}
 
 // ═══════════════ PRODUCT ACTIONS ═══════════════
 function addProduct(){
+  pushUndo();saveSnapshot('상품 추가 전');
   var p=mkProduct('새 상품');
   S.products.push(p);S.cur=p.id;save();
   renderSidebar();renderContent();
@@ -866,12 +955,17 @@ function addProduct(){
     if(last) startRenameProd(p.id,last.querySelector('.prod-item-name'));
   },50);
 }
-function selProduct(id){S.cur=id;save();renderSidebar();renderContent();}
+function selProduct(id){
+  if(id===S.cur)return;
+  saveSnapshot('상품 전환 — '+(cur()?cur().name:''));
+  S.cur=id;save();renderSidebar();renderContent();
+}
 function renameProduct(val){var p=cur();if(!p)return;p.name=val.trim()||'새 상품';save();}
 function deleteProduct(id){
   if(S.products.length<=1){showToast('상품이 1개뿐이라 삭제할 수 없어요');return;}
   var p=S.products.find(function(x){return x.id===id;});
   if(!p||!confirm('"'+p.name+'" 상품을 삭제할까요?'))return;
+  pushUndo();saveSnapshot('삭제 전 — '+p.name);
   S.products=S.products.filter(function(x){return x.id!==id;});
   if(S.cur===id) S.cur=S.products[0].id;
   save();renderSidebar();renderContent();
@@ -895,7 +989,14 @@ function startRenameProd(id,nameEl){
 }
 
 // ═══════════════ PRESET ═══════════════
+var _undoDebTimer=null;
+function pushUndoDebounced(){
+  clearTimeout(_undoDebTimer);
+  _undoDebTimer=setTimeout(function(){pushUndo();},800);
+}
+
 function applyFieldPreset(type){
+  pushUndo();
   var p=cur();if(!p)return;
   // Only toggle importer visibility — never delete data
   p.fields.forEach(function(f){
@@ -917,6 +1018,7 @@ function setFieldLabel(fid,val){
   save();
 }
 function setFieldVal(fid,lang,val){
+  pushUndoDebounced();
   var p=cur();if(!p)return;
   var f=p.fields.find(function(x){return x.id===fid;});
   if(f){f.values[lang]=val;save();}
@@ -1070,7 +1172,7 @@ function setCauVer(ver){
   save();renderContent();showToast('주의사항 초기화됨');
 }
 function setCauStyle(s){var p=cur();if(!p)return;p.cautions.style=s;save();renderContent();}
-function setCauText(lang,idx,val){var p=cur();if(!p)return;p.cautions.texts[lang][idx]=val;save();}
+function setCauText(lang,idx,val){pushUndoDebounced();var p=cur();if(!p)return;p.cautions.texts[lang][idx]=val;save();}
 function delCauItem(lang,idx){var p=cur();if(!p)return;p.cautions.texts[lang].splice(idx,1);save();renderContent();}
 function openModal(){
   document.getElementById('addModalTa').value='';
@@ -1476,9 +1578,10 @@ function renderContent(){
 
 // ── 필드편집 ──
 function tabFields(p){
-  return '<div style="display:flex;gap:6px;margin-bottom:14px;align-items:center">'
+  return '<div style="display:flex;gap:6px;margin-bottom:14px;align-items:center;flex-wrap:wrap">'
     +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="applyFieldPreset(\'global\')">국외 제작</button>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="applyFieldPreset(\'domestic\')">국내 제작</button>'
+    +'<button class="preset-btn" style="flex:none;padding:0 14px;color:var(--danger);border-color:rgba(255,95,95,.3)" onclick="resetCurrentProduct()" title="현재 상품 초기화">초기화</button>'
     +'<div style="flex:1"></div>'
     +'<button class="preset-btn" id="btnTrAll" style="flex:none;padding:0 14px" onclick="trAll()">전체 번역</button>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px;border-color:rgba(200,241,53,.5);color:var(--accent)" onclick="openPreview()">미리보기</button>'
