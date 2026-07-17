@@ -215,6 +215,16 @@ select.form-input{cursor:pointer;-webkit-appearance:none;appearance:none;}
 </style>
 </head>
 <body>
+<!-- 버전 관리 모달 -->
+<div id="cauVerModal" class="modal-overlay" onclick="if(event.target===this)closeCauVerModal()">
+  <div class="modal-box" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">주의사항 버전 관리</div>
+      <button class="modal-close" onclick="closeCauVerModal()">✕</button>
+    </div>
+    <div class="modal-body" id="cauVerModalBody"></div>
+  </div>
+</div>
 <!-- 기록/복원 모달 -->
 <div id="historyModal" class="modal-overlay" onclick="if(event.target===this)closeHistoryModal()">
   <div class="modal-box" style="max-width:400px">
@@ -547,6 +557,7 @@ var _mpFid=null;var _mpY=2026;var _mpM=8;
 var _dragId=null;var _toastTimer=null;
 var _settingsOpen={};
 var _cauTmpLang='ko';var _cauVerOpen={};
+var _settingsCauVer=CAU_VER_DEF[0].v;
 var _settDragKey=null,_settDragI=-1;
 var _cauTmplDragVer=null,_cauTmplDragLang=null,_cauTmplDragI=-1;
 var _matItemDragGi=-1,_matItemDragIi=-1;
@@ -819,6 +830,7 @@ function switchSettingsLang(code){
   _cauTmpLang=code;
   renderContent();
   if(code==='ko') return;
+
   var DROP_KEYS=['ageOptions','originOptions','mfrOptions','importerOptions','distOptions'];
   var tasks=[];
   // material items
@@ -967,13 +979,81 @@ function onFsDrop(e,i){e.preventDefault();if(_settFsDragI===i)return;var arr=S.s
 function deleteFieldSection(key){S.settings.fieldSections=S.settings.fieldSections.filter(function(k){return k!==key;});save();renderContent();}
 function addFieldSection(key){if(S.settings.fieldSections.indexOf(key)===-1)S.settings.fieldSections.push(key);save();renderContent();}
 
-// ── 주의사항 버전 드래그 ──
+// ── 주의사항 버전 관리 모달 ──
+function openCauVerModal(){
+  renderCauVerModal();
+  document.getElementById('cauVerModal').classList.add('open');
+}
+function closeCauVerModal(){document.getElementById('cauVerModal').classList.remove('open');}
+function renderCauVerModal(){
+  var cv=S.settings.cauVersions||[];
+  var defV=S.settings.defaultCauVersion||cv[0].v;
+  var btnBase='height:28px;padding:0 9px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);font-size:var(--t-sm);color:var(--text2);cursor:pointer;flex-shrink:0;';
+  var items=cv.map(function(vr,i){
+    var isDef=vr.v===defV;
+    var canUp=i>0;var canDn=i<cv.length-1;
+    return '<div style="display:flex;align-items:center;gap:7px;padding:7px 0;border-bottom:1px solid var(--border)">'
+      +'<span style="width:16px;text-align:center;font-size:var(--t-xs);color:var(--text3);flex-shrink:0">'+(i+1)+'</span>'
+      +'<input class="form-input sm" style="flex:1;min-width:0;font-size:var(--t-md)" value="'+eh(vr.l)+'" oninput="renameCauVersion(\''+vr.v+'\',this.value)">'
+      +'<button style="'+btnBase+';color:'+(isDef?'var(--accent)':'var(--text3)')+';border-color:'+(isDef?'rgba(200,241,53,.5)':'var(--border)')+'" title="필드편집 기본값으로 설정" onclick="setDefaultCauVersion(\''+vr.v+'\')">'+(isDef?'★ 기본값':'☆ 기본값')+'</button>'
+      +'<button style="'+btnBase+'" onclick="moveCauVerModal('+i+',-1)"'+(canUp?'':' disabled style="'+btnBase+'opacity:.3;cursor:default"')+'>↑</button>'
+      +'<button style="'+btnBase+'" onclick="moveCauVerModal('+i+',1)"'+(canDn?'':' disabled style="'+btnBase+'opacity:.3;cursor:default"')+'>↓</button>'
+      +'<button style="'+btnBase+';color:var(--danger);border-color:rgba(255,95,95,.2)" onclick="deleteCauVersionModal(\''+vr.v+'\')"'+(cv.length<=1?' disabled':'')+'>✕</button>'
+      +'</div>';
+  }).join('');
+  var addRow='<div style="padding-top:10px;display:flex;gap:7px">'
+    +'<input id="cauVerNewName" class="form-input sm" style="flex:1" placeholder="새 버전 이름">'
+    +'<button style="height:30px;padding:0 14px;background:var(--accent);color:#111;border:none;border-radius:var(--r);font-size:var(--t-md);font-weight:700;cursor:pointer" onclick="addCauVersionModal()">추가</button>'
+    +'</div>';
+  document.getElementById('cauVerModalBody').innerHTML='<div>'+items+'</div>'+addRow;
+}
+function moveCauVerModal(i,dir){
+  var cv=S.settings.cauVersions;
+  var j=i+dir;if(j<0||j>=cv.length)return;
+  var tmp=cv[i];cv[i]=cv[j];cv[j]=tmp;
+  // 선택된 버전도 따라가게
+  var movedV=cv[j].v;
+  if(_settingsCauVer===cv[i].v||_settingsCauVer===cv[j].v) _settingsCauVer=movedV;
+  save();renderCauVerModal();renderContent();
+}
+function deleteCauVersionModal(v){
+  var cv=S.settings.cauVersions;
+  if(cv.length<=1){showToast('최소 1개는 필요합니다');return;}
+  var vr=cv.find(function(x){return x.v===v;});
+  if(!vr||!confirm('"'+vr.l+'" 버전을 삭제할까요?')) return;
+  pushUndo();
+  S.settings.cauVersions=cv.filter(function(x){return x.v!==v;});
+  if(_settingsCauVer===v) _settingsCauVer=S.settings.cauVersions[0].v;
+  save();renderCauVerModal();renderContent();showToast('"'+vr.l+'" 삭제됨');
+}
+function addCauVersionModal(){
+  var inp=document.getElementById('cauVerNewName');
+  var l=inp?inp.value.trim():'';
+  if(!l){showToast('버전 이름을 입력해주세요');return;}
+  var v='cau_'+Date.now();
+  S.settings.cauVersions.push({v:v,l:l});
+  if(!S.settings.cauTemplates[v]) S.settings.cauTemplates[v]={ko:[],en:[],ja:[],'zh-cn':[],'zh-tw':[]};
+  _settingsCauVer=v;
+  save();renderCauVerModal();renderContent();
+  if(inp) inp.value='';
+}
+function addCauVersion(){
+  // legacy — 모달 없이 prompt 사용, 모달 버전 우선
+  openCauVerModal();
+}
+function deleteCauVersion(v){
+  if(typeof v==='string') deleteCauVersionModal(v);
+}
+function moveCauVer(dir){
+  var cv=S.settings.cauVersions;
+  var i=cv.findIndex(function(x){return x.v===_settingsCauVer;});
+  moveCauVerModal(i,dir);
+}
+function renameCauVersion(v,val){var vr=S.settings.cauVersions.find(function(x){return x.v===v;});if(vr){vr.l=val;save();}}
+function setDefaultCauVersion(v){S.settings.defaultCauVersion=v;save();renderCauVerModal();renderContent();}
+// ── 주의사항 버전 드래그 (모달 내부에서는 ↑↓ 사용, 기존 드래그 핸들 유지) ──
 function onCauVerDragStart(e,i){if(!_cauVerDragFromHandle){e.preventDefault();return;}_cauVerDragFromHandle=false;_settCauDragI=i;e.dataTransfer.effectAllowed='move';}
 function onCauVerDrop(e,i){e.preventDefault();if(_settCauDragI===i)return;var arr=S.settings.cauVersions;var rm=arr.splice(_settCauDragI,1)[0];arr.splice(i,0,rm);save();renderContent();}
-function deleteCauVersion(v){if(S.settings.cauVersions.length<=1){showToast('최소 1개는 필요합니다');return;}S.settings.cauVersions=S.settings.cauVersions.filter(function(vr){return vr.v!==v;});save();renderContent();}
-function addCauVersion(){var l=prompt('버전 이름:','');if(!l||!l.trim())return;var v='cau_'+Date.now();S.settings.cauVersions.push({v:v,l:l.trim()});if(!S.settings.cauTemplates[v])S.settings.cauTemplates[v]={ko:[],en:[],ja:[],'zh-cn':[],'zh-tw':[]};save();renderContent();}
-function renameCauVersion(v,val){var vr=S.settings.cauVersions.find(function(x){return x.v===v;});if(vr){vr.l=val;save();}}
-function setDefaultCauVersion(v){S.settings.defaultCauVersion=v;save();renderContent();}
 
 // ── acc-hdr 변형 (드래그핸들 + 삭제버튼) ──
 // justify-content:flex-start + margin-left:auto 패턴으로 정렬 보장
@@ -1749,14 +1829,15 @@ document.addEventListener('DOMContentLoaded',function(){
     document.getElementById('gs-modal').classList.add('open');
   });
 });
+function _valOrBlank(f,lang){return fmtWithUnit(getFieldVal(f,lang),f.unit)||'미입력';}
 function genTextProse(p,lang){
-  var parts=p.fields.filter(function(f){return !f.hidden;}).map(function(f){return getLabel(f,lang)+' '+fmtWithUnit(getFieldVal(f,lang),f.unit);});
+  var parts=p.fields.filter(function(f){return !f.hidden;}).map(function(f){return getLabel(f,lang)+' '+_valOrBlank(f,lang);});
   var cauParts=p.cautions.texts[lang].map(function(t,i){return getSym(p.cautions.style,i)+' '+t;});
   parts.push(CAU_LBL[lang]+' '+cauParts.join(' '));
   return parts.join(' / ');
 }
 function genTextLines(p,lang){
-  var lines=p.fields.filter(function(f){return !f.hidden;}).map(function(f){return getLabel(f,lang)+' '+fmtWithUnit(getFieldVal(f,lang),f.unit);});
+  var lines=p.fields.filter(function(f){return !f.hidden;}).map(function(f){return getLabel(f,lang)+' '+_valOrBlank(f,lang);});
   lines.push(CAU_LBL[lang]);
   p.cautions.texts[lang].forEach(function(t,i){lines.push(getSym(p.cautions.style,i)+' '+t);});
   return lines.join('\n');
@@ -2065,16 +2146,27 @@ function tabSettings(){
   var mg=matGroups();
   var fs=S.settings.fieldSections||ALL_FS_KEYS.slice();
   var cv=S.settings.cauVersions||CAU_VER_DEF.map(function(v){return{v:v.v,l:v.l};});
-  // 툴바 (왼쪽: 언어 버튼 / 오른쪽: 액션 버튼)
-  var html='<div style="display:flex;gap:6px;margin-bottom:14px;align-items:center;flex-wrap:wrap">'
-    +LANGS.map(function(l){
-      return '<button class="lang-pill'+(l.code===lang?' active':'')+'" style="flex:none" onclick="switchSettingsLang(\''+l.code+'\')">'+l.label+'</button>';
-    }).join('')
+  if(!_settingsCauVer||!cv.find(function(v){return v.v===_settingsCauVer;})) _settingsCauVer=cv[0].v;
+  // 툴바 (왼쪽: 주의사항 버전 드롭다운 / 오른쪽: 액션 버튼)
+  var verOpts=cv.map(function(v){return '<option value="'+v.v+'"'+(v.v===_settingsCauVer?' selected':'')+'>'+v.l+'</option>';}).join('');
+  var curVerIdx=cv.findIndex(function(v){return v.v===_settingsCauVer;});
+  var html='<div style="display:flex;gap:6px;margin-bottom:16px;align-items:center;flex-wrap:wrap">'
+    +'<select style="height:30px;padding:0 8px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);color:var(--text2);font-size:var(--t-md);cursor:pointer;outline:none;flex:none" onchange="_settingsCauVer=this.value;renderContent()">'
+    +verOpts
+    +'</select>'
+    +'<button class="preset-btn" style="flex:none;padding:0 12px" onclick="openCauVerModal()">버전 관리</button>'
     +'<div style="flex:1"></div>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="undo()">실행취소</button>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="openHistoryModal()">저장기록</button>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px;border-color:rgba(200,241,53,.5);color:var(--accent)" onclick="saveSettingsSnapshot()">입력 저장</button>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px;color:var(--danger);border-color:rgba(255,95,95,.3)" onclick="resetAllSettings()">전체 초기화</button>'
+    +'</div>'
+    // 언어 버튼 풀너비 5칸
+    +'<div style="height:1px;background:var(--border);margin-bottom:12px"></div>'
+    +'<div class="lang-pills" style="margin-bottom:14px">'
+    +LANGS.map(function(l){
+      return '<button class="lang-pill'+(l.code===lang?' active':'')+'" onclick="switchSettingsLang(\''+l.code+'\')">'+l.label+'</button>';
+    }).join('')
     +'</div>';
   html+='<div class="sect-hdr">상품 기본 정보</div>';
 
@@ -2169,30 +2261,22 @@ function tabSettings(){
   }
   html+='</div>';
 
-  // ── 주의사항 기본 문구 ──
+  // ── 주의사항 기본 문구 (선택된 버전만 표시) ──
   html+='<div class="sect-hdr" style="margin-top:16px">주의사항 기본 문구</div>';
-  cv.forEach(function(vr,vi){
-    var vOpen=_settingsOpen['cau_'+vr.v]!==false;
-    var tmpl=S.settings.cauTemplates||{};
-    var items=(tmpl[vr.v]&&tmpl[vr.v][lang])||[];
-    html+='<div draggable="true" ondragstart="onCauVerDragStart(event,'+vi+')" ondragover="event.preventDefault()" ondrop="onCauVerDrop(event,'+vi+')">';
-    html+=accHdrCauVer(vr.v,vr.l,vOpen,vi);
-    if(vOpen){
-      var cauItems=items.map(function(t,ci){
-        return '<div class="acc-item" draggable="true" ondragstart="onCauTmplDS(event,\''+vr.v+'\',\''+lang+'\','+ci+')" ondragover="event.preventDefault()" ondrop="onCauTmplDrop(event,\''+vr.v+'\',\''+lang+'\','+ci+')">'
-          +'<span class="drag-handle">⠿</span>'
-          +'<input class="form-input sm" style="flex:1" data-ctmpl="'+vr.v+'_'+lang+'" value="'+eh(t)+'" oninput="updateCauTmplItem(\''+vr.v+'\',\''+lang+'\','+ci+',this.value)">'
-          +'<button class="del-btn" onclick="delCauTmplItem(\''+vr.v+'\',\''+lang+'\','+ci+')">✕</button></div>';
-      }).join('');
-      html+='<div class="acc-body">'+cauItems
-        +'<div style="display:flex;gap:6px;margin-top:4px">'
-        +'<button class="add-row-btn" style="flex:1;margin-top:0" onclick="addCauTmplItem(\''+vr.v+'\',\''+lang+'\')">+ 항목 추가</button>'
-        +'<button class="action-btn" onclick="resetCauTmpl(\''+vr.v+'\')" style="flex-shrink:0">초기화</button>'
-        +'</div></div>';
-    }else html+='<div style="margin-bottom:4px"></div>';
-    html+='</div>';
-  });
-  html+='<button class="add-row-btn" style="margin-top:4px" onclick="addCauVersion()">+ 버전 추가</button>';
+  var activeCv=cv.find(function(v){return v.v===_settingsCauVer;})||cv[0];
+  var tmpl=S.settings.cauTemplates||{};
+  var items=(tmpl[activeCv.v]&&tmpl[activeCv.v][lang])||[];
+  var cauItems=items.map(function(t,ci){
+    return '<div class="acc-item" draggable="true" ondragstart="onCauTmplDS(event,\''+activeCv.v+'\',\''+lang+'\','+ci+')" ondragover="event.preventDefault()" ondrop="onCauTmplDrop(event,\''+activeCv.v+'\',\''+lang+'\','+ci+')">'
+      +'<span class="drag-handle">⠿</span>'
+      +'<input class="form-input sm" style="flex:1" data-ctmpl="'+activeCv.v+'_'+lang+'" value="'+eh(t)+'" oninput="updateCauTmplItem(\''+activeCv.v+'\',\''+lang+'\','+ci+',this.value)">'
+      +'<button class="del-btn" onclick="delCauTmplItem(\''+activeCv.v+'\',\''+lang+'\','+ci+')">✕</button></div>';
+  }).join('');
+  html+='<div style="margin-top:4px">'+cauItems
+    +'<div style="display:flex;gap:6px;margin-top:6px">'
+    +'<button class="add-row-btn" style="flex:1;margin-top:0" onclick="addCauTmplItem(\''+activeCv.v+'\',\''+lang+'\')">+ 항목 추가</button>'
+    +'<button class="action-btn" onclick="resetCauTmpl(\''+activeCv.v+'\')" style="flex-shrink:0">초기화</button>'
+    +'</div></div>';
   return html;
 }
 
