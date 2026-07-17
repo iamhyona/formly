@@ -528,13 +528,30 @@ var FS_LABELS_MAP={name:'품명',size:'사이즈',weight:'무게',age:'사용연
 var FS_ADD_LABEL={ageOptions:'사용연령 추가',originOptions:'제조국 추가',mfrOptions:'제조사 추가',importerOptions:'수입사 추가',distOptions:'판매원 추가'};
 var DROP_FS_MAP={age:['ageOptions','age'],origin:['originOptions','origin'],mfr:['mfrOptions','mfr'],importer:['importerOptions','importer'],dist:['distOptions','dist']};
 var CAU_VER_DEF=[
-  {v:'doll',l:'인형'},
-  {v:'paper',l:'지류 및 잡화'},
-  {v:'acrylic',l:'아크릴류'},
-  {v:'textile',l:'양말 및 데스크매트'},
-  {v:'tshirt',l:'티셔츠'},
-  {v:'simple',l:'심플'}
+  {v:'paper',    l:'지류 및 잡화 (국내)'},
+  {v:'acrylic',  l:'아크릴류 (국내)'},
+  {v:'textile',  l:'양말, 데스크매트 (국내)'},
+  {v:'tshirt',   l:'티셔츠 (국내)'},
+  {v:'doll',     l:'인형 (국외)'},
+  {v:'paper_intl',  l:'지류 및 잡화 (국외)'},
+  {v:'tshirt_intl', l:'티셔츠 (국외)'},
+  {v:'simple',   l:'심플'}
 ];
+
+// 버전별 표시 필드 (hidden 자동 적용 기준)
+var CAU_VER_FIELDS={
+  // 국내 — 무게(weight), 수입사(importer) 없음
+  'paper':    ['name','size','age','contents','material','mfgDate','origin','mfr','dist'],
+  'acrylic':  ['name','size','age','contents','material','mfgDate','origin','mfr','dist'],
+  'textile':  ['name','size','age','contents','material','mfgDate','origin','mfr','dist'],
+  'tshirt':   ['name','size','age','contents','material','mfgDate','origin','mfr','dist'],
+  // 국외 — 수입사(importer) 있음
+  'doll':         ['name','size','weight','age','contents','material','mfgDate','origin','mfr','importer','dist'],
+  'paper_intl':   ['name','size','age','contents','material','mfgDate','origin','mfr','importer','dist'],
+  'tshirt_intl':  ['name','size','age','contents','material','mfgDate','origin','mfr','importer','dist'],
+  // 심플 — 국내 기본
+  'simple':   ['name','size','age','contents','material','mfgDate','origin','mfr','dist']
+};
 
 // ═══════════════ STATE ═══════════════
 var S={
@@ -560,6 +577,7 @@ var _dragId=null;var _toastTimer=null;
 var _settingsOpen={};
 var _cauTmpLang='ko';var _cauVerOpen={};
 var _settingsCauVer=CAU_VER_DEF[0].v;
+var _editLang='ko'; // 필드편집 탭 언어
 var _settDragKey=null,_settDragI=-1;
 var _cauTmplDragVer=null,_cauTmplDragLang=null,_cauTmplDragI=-1;
 var _matItemDragGi=-1,_matItemDragIi=-1;
@@ -602,10 +620,12 @@ function applyPresetToVals(vals,koVal){
   if(tr){['en','ja','zh-cn','zh-tw'].forEach(function(l){vals[l]=tr[l]||koVal;});}
   else{['en','ja','zh-cn','zh-tw'].forEach(function(l){vals[l]=koVal;});}
 }
-var _CAU_SRC_MAP={doll:null,paper:null,acrylic:null,textile:null,tshirt:null,simple:null,full:null,care:null};
+var _CAU_SRC_MAP={doll:null,paper:null,acrylic:null,textile:null,tshirt:null,simple:null,paper_intl:null,tshirt_intl:null,full:null,care:null};
 function _getCauDefault(ver){
-  if(ver==='doll')    return CAUTION_DOLL;
-  if(ver==='paper')   return CAUTION_PAPER;
+  if(ver==='doll')         return CAUTION_DOLL;
+  if(ver==='paper')        return CAUTION_PAPER;
+  if(ver==='paper_intl')   return CAUTION_PAPER;
+  if(ver==='tshirt_intl')  return CAUTION_TSHIRT;
   if(ver==='acrylic') return CAUTION_ACRYLIC;
   if(ver==='textile') return CAUTION_TEXTILE;
   if(ver==='tshirt')  return CAUTION_TSHIRT;
@@ -724,6 +744,25 @@ function loadSaved(){
   if(!S.settings.cauVersions||_hasOldVersions){
     S.settings.cauVersions=CAU_VER_DEF.map(function(v){return{v:v.v,l:v.l};});
     S.settings.defaultCauVersion=CAU_VER_DEF[0].v;
+  } else {
+    // 이전 라벨 → 새 라벨 자동 업데이트 (사용자가 직접 수정하지 않은 기본 버전만)
+    var _oldLblMap={doll:'인형',paper:'지류 및 잡화',acrylic:'아크릴류',textile:'양말 및 데스크매트',tshirt:'티셔츠',simple:'심플'};
+    var _newLblMap={};
+    CAU_VER_DEF.forEach(function(vd){_newLblMap[vd.v]=vd.l;});
+    S.settings.cauVersions.forEach(function(vr){
+      if(_oldLblMap[vr.v]&&vr.l===_oldLblMap[vr.v]) vr.l=_newLblMap[vr.v]||vr.l;
+    });
+    // 신규 기본 버전(paper_intl, tshirt_intl 등) 없으면 추가
+    CAU_VER_DEF.forEach(function(vd){
+      if(!S.settings.cauVersions.find(function(v){return v.v===vd.v;})){
+        // 국내 버전 바로 다음에 국외 버전 삽입
+        var insertAfter={paper_intl:'paper',tshirt_intl:'tshirt',doll:'textile'};
+        var afterKey=insertAfter[vd.v];
+        var idx=afterKey?S.settings.cauVersions.findIndex(function(v){return v.v===afterKey;}): -1;
+        if(idx!==-1) S.settings.cauVersions.splice(idx+1,0,{v:vd.v,l:vd.l});
+        else S.settings.cauVersions.push({v:vd.v,l:vd.l});
+      }
+    });
   }
   if(!S.settings.defaultCauVersion) S.settings.defaultCauVersion=(S.settings.cauVersions&&S.settings.cauVersions[0])?S.settings.cauVersions[0].v:CAU_VER_DEF[0].v;
   if(!S.settings.materialGroups){
@@ -784,15 +823,15 @@ function mkField(key){
 }
 
 function mkProduct(name){
-  return{
+  var defVer=S.settings.defaultCauVersion||CAU_VER_DEF[0].v;
+  var src=getCauSrc(defVer);
+  var p={
     id:uid(),name:name||'새 상품',
     fields:FIELD_DEFS.map(function(d){return mkField(d.key);}),
-    cautions:(function(){
-      var defVer=S.settings.defaultCauVersion||'full';
-      var src=getCauSrc(defVer);
-      return{version:defVer,style:'circle',texts:{ko:src.ko.slice(),en:src.en.slice(),ja:src.ja.slice(),'zh-cn':src['zh-cn'].slice(),'zh-tw':src['zh-tw'].slice()}};
-    }())
+    cautions:{version:defVer,style:'circle',texts:{ko:src.ko.slice(),en:src.en.slice(),ja:src.ja.slice(),'zh-cn':src['zh-cn'].slice(),'zh-tw':src['zh-tw'].slice()}}
   };
+  applyVersionFields(p,defVer);
+  return p;
 }
 
 // ═══════════════ TRANSLATION ═══════════════
@@ -930,6 +969,52 @@ function trAll(){
   }
 
   nxtDrop();
+}
+
+// ── 언어별 번역 (필드편집 탭) ──
+function trForLang(lang, onDone){
+  var p=cur();if(!p){if(onDone)onDone();return;}
+  // copy-as-is 먼저 처리 (동기)
+  p.fields.forEach(function(f){
+    if(isCopyAsIs(f.defKey)&&f.values.ko&&!f.values[lang]) f.values[lang]=f.values.ko;
+  });
+  var textTasks=p.fields.filter(function(f){
+    return !f.hidden&&f.values.ko&&f.values.ko.trim()&&!f.values[lang]&&!isCopyAsIs(f.defKey)&&!_OPT_KEY_MAP[f.defKey];
+  });
+  var dropTasks=p.fields.filter(function(f){
+    return !f.hidden&&_OPT_KEY_MAP[f.defKey]&&f.values.ko&&!getOptTr(_OPT_KEY_MAP[f.defKey],f.values.ko,lang);
+  });
+  var allTasks=[];
+  textTasks.forEach(function(f){allTasks.push({type:'text',f:f});});
+  dropTasks.forEach(function(f){allTasks.push({type:'drop',f:f,ok:_OPT_KEY_MAP[f.defKey]});});
+  if(!allTasks.length){save();renderContent();if(onDone)onDone();return;}
+  var i=0;
+  function next(){
+    if(i>=allTasks.length){save();renderContent();if(onDone)onDone();return;}
+    var t=allTasks[i++];
+    if(t.type==='text'){
+      var preset=PRESET_TR[t.f.values.ko];
+      if(preset&&preset[lang]){t.f.values[lang]=preset[lang];next();return;}
+      trText(t.f.values.ko,lang).then(function(r){t.f.values[lang]=r;next();});
+    } else {
+      var ko=t.f.values.ko;
+      if(!isKorean(ko)){setOptTr(t.ok,ko,lang,ko);next();return;}
+      var preset=PRESET_TR[ko];
+      if(preset&&preset[lang]){setOptTr(t.ok,ko,lang,preset[lang]);next();return;}
+      trText(ko,lang).then(function(r){setOptTr(t.ok,ko,lang,r);next();});
+    }
+  }
+  next();
+}
+function switchEditLang(code){
+  _editLang=code;
+  renderContent();
+  if(code==='ko') return;
+  var p=cur();if(!p) return;
+  var needsTr=p.fields.some(function(f){
+    return !f.hidden&&f.values.ko&&f.values.ko.trim()&&!f.values[code]&&!isCopyAsIs(f.defKey);
+  });
+  if(needsTr) trForLang(code,function(){showToast('번역 완료');});
 }
 
 // ── 상품명 필드 업데이트 ──
@@ -1344,13 +1429,24 @@ function mpSelect(m){
   closeMp();renderContent();
 }
 
+// ── 버전별 필드 자동 적용 ──
+function applyVersionFields(p,ver){
+  var show=CAU_VER_FIELDS[ver];
+  if(!show) return; // 미정의 버전은 변경 없음
+  p.fields.forEach(function(f){
+    if(!f.defKey) return;
+    f.hidden=(show.indexOf(f.defKey)===-1);
+  });
+}
+
 // ═══════════════ CAUTION ACTIONS ═══════════════
 function setCauVer(ver){
   var p=cur();if(!p)return;
   p.cautions.version=ver;
   var src=getCauSrc(ver);
   ['ko','en','ja','zh-cn','zh-tw'].forEach(function(l){p.cautions.texts[l]=src[l].slice();});
-  save();renderContent();showToast('주의사항 초기화됨');
+  applyVersionFields(p,ver);
+  save();renderContent();showToast('주의사항 버전 변경됨');
 }
 function setCauStyle(s){var p=cur();if(!p)return;p.cautions.style=s;save();renderContent();}
 function setCauText(lang,idx,val){pushUndoDebounced();var p=cur();if(!p)return;p.cautions.texts[lang][idx]=val;save();}
@@ -1904,8 +2000,14 @@ function renderContent(){
 
 // ── 필드편집 ──
 function tabFields(p){
-  return '<div style="display:flex;gap:6px;margin-bottom:14px;align-items:center;flex-wrap:wrap">'
-    +'<button class="preset-btn" id="btnTrAll" style="flex:none;padding:0 14px" onclick="trAll()">번역하기</button>'
+  var cv=S.settings.cauVersions||CAU_VER_DEF.map(function(v){return{v:v.v,l:v.l};});
+  var curVer=p.cautions.version;
+  var verOpts=cv.map(function(o){return'<option value="'+o.v+'"'+(curVer===o.v?' selected':'')+'>'+o.l+'</option>';}).join('');
+  var langPills=LANGS.map(function(l){
+    return '<button class="lang-pill'+(l.code===_editLang?' active':'')+'" onclick="switchEditLang(\''+l.code+'\')">'+l.label+'</button>';
+  }).join('');
+  return '<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap">'
+    +'<div class="sel-wrap" style="flex:none"><select class="form-input sm" style="height:30px;font-size:var(--t-md)" onchange="setCauVer(this.value)">'+verOpts+'</select></div>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px;border-color:rgba(200,241,53,.5);color:var(--accent)" onclick="openPreview()">미리보기</button>'
     +'<div style="flex:1"></div>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="undo()">실행취소</button>'
@@ -1913,6 +2015,8 @@ function tabFields(p){
     +'<button class="preset-btn" style="flex:none;padding:0 14px;border-color:rgba(200,241,53,.5);color:var(--accent)" onclick="saveFieldsSnapshot()">입력 저장</button>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px;color:var(--danger);border-color:rgba(255,95,95,.3)" onclick="resetCurrentProduct()">전체 초기화</button>'
     +'</div>'
+    +'<div style="height:1px;background:var(--border);margin-bottom:10px"></div>'
+    +'<div class="lang-pills" style="margin-bottom:14px">'+langPills+'</div>'
     +'<div class="sect-hdr">상품 기본 정보</div>'
     +p.fields.map(function(f){return renderFieldCard(f);}).join('')
     +'<button class="add-row-btn" onclick="openFieldPicker()">+ 상품 정보 항목 추가</button>'
@@ -1950,10 +2054,12 @@ function renderHiddenCard(f){
 
 function renderTextCard(f){
   var lbl=getLabel(f,'ko');
+  var val=f.values[_editLang]||'';
+  var isNonKo=_editLang!=='ko';
   return '<div class="field-card"'+_da(f.id)+'>'
     +'<div class="field-row-inner"><span class="drag-handle">⠿</span>'
-    +'<input class="field-lbl-input" value="'+eh(lbl)+'" oninput="setFieldLabel(\''+f.id+'\',this.value)">'
-    +'<input class="form-input sm" style="flex:1" value="'+eh(f.values.ko)+'" placeholder="'+eh(lbl)+' 입력" oninput="setFieldVal(\''+f.id+'\',\'ko\',this.value)">'
+    +'<input class="field-lbl-input" value="'+eh(lbl)+'" '+(isNonKo?'readonly style="opacity:.5;pointer-events:none" ':'')+'oninput="setFieldLabel(\''+f.id+'\',this.value)">'
+    +'<input class="form-input sm" style="flex:1" value="'+eh(val)+'" placeholder="'+(isNonKo?'번역 대기...':eh(lbl)+' 입력')+'" oninput="setFieldVal(\''+f.id+'\',_editLang,this.value)">'
     +'<button class="del-btn" onclick="delField(\''+f.id+'\')">✕</button>'
     +'</div></div>';
 }
@@ -1984,6 +2090,19 @@ function renderSelectCard(f){
   var opts=getOptionsForField(key),val=f.values.ko;
   var isCustom=_customMode[f.id]||(val&&opts.indexOf(val)===-1);
   if(isCustom)_customMode[f.id]=true;
+  var isNonKo=_editLang!=='ko';
+  if(isNonKo){
+    // 비KO 모드: 번역된 값 표시 (읽기전용), 선택은 KO 탭에서
+    var ok=_OPT_KEY_MAP[key];
+    var trVal=ok?getOptTr(ok,val,_editLang):'';
+    var displayVal=trVal||val||'';
+    return '<div class="field-card"'+_da(f.id)+'>'
+      +'<div class="field-row-inner"><span class="drag-handle">⠿</span>'
+      +'<input class="field-lbl-input" value="'+eh(lbl)+'" readonly style="opacity:.5;pointer-events:none">'
+      +'<input class="form-input sm" style="flex:1;opacity:'+(trVal?'1':'.4')+'" value="'+eh(displayVal)+'" placeholder="번역 대기..." readonly>'
+      +'<button class="del-btn" onclick="delField(\''+f.id+'\')">✕</button>'
+      +'</div></div>';
+  }
   var selVal=isCustom?'__custom__':val;
   var optHtml=opts.map(function(o){return'<option value="'+eh(o)+'"'+(selVal===o?' selected':'')+'>'+eh(o)+'</option>';}).join('');
   optHtml+='<option value="__custom__"'+(isCustom?' selected':'')+'>직접 입력</option>';
@@ -2035,26 +2154,25 @@ function renderMaterialCard(f){
 
 // ── 주의사항 (필드편집 내) ──
 function renderCauSection(p){
-  var ver=p.cautions.version,style=p.cautions.style;
-  var items=p.cautions.texts['ko']||[];
-  var verOpts=[{v:'full',l:'풀버전 (8항목)'},{v:'simple',l:'심플버전 (2항목)'},{v:'care',l:'케어라벨'}]
-    .map(function(o){return'<option value="'+o.v+'"'+(ver===o.v?' selected':'')+'>'+o.l+'</option>';}).join('');
+  var style=p.cautions.style;
+  var lang=_editLang;
+  var items=p.cautions.texts[lang]||[];
   var styleOpts=CSTYLES.map(function(s){return'<option value="'+s.id+'"'+(style===s.id?' selected':'')+'>'+s.label+'</option>';}).join('');
   var itemsHtml=items.map(function(t,i){
     return '<div class="field-card">'
       +'<div class="field-row-inner">'
       +'<span class="field-lbl" style="color:var(--accent)">'+getSym(style,i)+'</span>'
-      +'<input class="form-input sm" style="flex:1" value="'+eh(t)+'" oninput="setCauText(\'ko\','+i+',this.value)">'
-      +'<button class="del-btn" onclick="delCauItem(\'ko\','+i+')">✕</button>'
+      +'<input class="form-input sm" style="flex:1" value="'+eh(t)+'" oninput="setCauText(\''+lang+'\','+i+',this.value)">'
+      +'<button class="del-btn" onclick="delCauItem(\''+lang+'\','+i+')">✕</button>'
       +'</div></div>';
   }).join('');
-  return '<div class="sect-hdr">주의사항</div>'
+  var cauLang=CAU_LBL[lang]||'주의사항';
+  return '<div class="sect-hdr">'+cauLang+'</div>'
     +'<div style="display:flex;gap:6px;margin-bottom:10px">'
-    +'<div class="sel-wrap" style="flex:1"><select class="form-input sm" onchange="setCauVer(this.value)">'+verOpts+'</select></div>'
     +'<div class="sel-wrap" style="flex:1"><select class="form-input sm" onchange="setCauStyle(this.value)">'+styleOpts+'</select></div>'
     +'</div>'
     +itemsHtml
-    +'<button class="add-row-btn" onclick="openModal()">+ 주의사항 항목 추가</button>';
+    +'<button class="add-row-btn" onclick="openModal()">+ 항목 추가</button>';
 }
 
 // ── 미리보기 (모달) ──
