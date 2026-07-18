@@ -1545,7 +1545,7 @@ function isKorean(s){return /[가-힣㈜]/.test(s);}
 
 // ═══════════════ EXPORT ═══════════════
 
-function _buildExportRows(){
+function _buildProductRows(p){
   var lls=['ko','en','ja','zh-cn','zh-tw'];
   var llbls={ko:'국문',en:'English',ja:'日本語','zh-cn':'中文(简体)','zh-tw':'中文(繁體)'};
   var llgrp={ko:'한국어',en:'영어',ja:'일본어','zh-cn':'중국어(간체)','zh-tw':'중국어(번체)'};
@@ -1556,32 +1556,36 @@ function _buildExportRows(){
     lls.forEach(function(l){cells.push(lblFn(l));cells.push(valFn(l));});
     return cells;
   }
-  // 최상단 언어 그룹 행 (A+B 병합 등은 _doExport에서 처리)
   var grpRow=[];lls.forEach(function(l){grpRow.push(llgrp[l],'');});rows.push(grpRow);
-  S.products.forEach(function(p){
-    p.fields.filter(function(f){return !f.hidden;}).forEach(function(f){
-      rows.push(makePairRow(
-        function(l){return getLabel(f,l);},
-        function(l){return fmtWithUnit(getFieldVal(f,l),f.unit)||'';}
-      ));
-    });
+  p.fields.filter(function(f){return !f.hidden;}).forEach(function(f){
     rows.push(makePairRow(
-      function(l){return CAU_LBL[l];},
-      function(l){return p.cautions.texts[l].map(function(t,i){return getSym(p.cautions.style,i)+' '+t;}).join('\n');}
+      function(l){return getLabel(f,l);},
+      function(l){return fmtWithUnit(getFieldVal(f,l),f.unit)||'';}
     ));
-    rows.push(makePairRow(
-      function(l){return llbls[l]+' 줄글';},
-      function(l){
-        var parts=p.fields.filter(function(f){return !f.hidden;}).map(function(f){
-          return getLabel(f,l)+' '+fmtWithUnit(getFieldVal(f,l),f.unit);
-        });
-        var cauParts=p.cautions.texts[l].map(function(t,i){return getSym(p.cautions.style,i)+' '+t;});
-        parts.push(CAU_LBL[l]+' '+cauParts.join(' '));
-        return parts.join(' ');
-      }
-    ));
-    rows.push(new Array(TOTAL_COLS).fill(''));
   });
+  rows.push(makePairRow(
+    function(l){return CAU_LBL[l];},
+    function(l){return '';}
+  ));
+  var _maxCau=Math.max.apply(null,lls.map(function(l){return (p.cautions.texts[l]||[]).length;}));
+  for(var _ci=0;_ci<_maxCau;_ci++){
+    rows.push((function(idx){return makePairRow(
+      function(l){return '';},
+      function(l){var t=(p.cautions.texts[l]||[])[idx]||'';return t?getSym(p.cautions.style,idx)+' '+t:'';}
+    );}(_ci)));
+  }
+  rows.push(makePairRow(
+    function(l){return llbls[l]+' 줄글';},
+    function(l){
+      var parts=p.fields.filter(function(f){return !f.hidden;}).map(function(f){
+        return getLabel(f,l)+' '+fmtWithUnit(getFieldVal(f,l),f.unit);
+      });
+      var cauParts=p.cautions.texts[l].map(function(t,i){return getSym(p.cautions.style,i)+' '+t;});
+      parts.push(CAU_LBL[l]+' '+cauParts.join(' '));
+      return parts.join(' ');
+    }
+  ));
+  rows.push(new Array(TOTAL_COLS).fill(''));
   return rows;
 }
 
@@ -1600,14 +1604,12 @@ function exportFile(){
 }
 function _doExport(){
   var lls=['ko','en','ja','zh-cn','zh-tw'];
-  // 라벨 열(연함) / 값 열 / 헤더 행 색상
   var lblFill={ko:'F2F2F2',en:'EBF3FF',ja:'FFF2F2','zh-cn':'FFFFFB','zh-tw':'EDFBF2'};
   var valFill={ko:'DDDDDD',en:'C8DFFF',ja:'FFCCCC','zh-cn':'FFFFAA','zh-tw':'BBEECC'};
   var hdrFill={ko:'C8C8C8',en:'A8C8F0',ja:'F0AAAA','zh-cn':'E8D870','zh-tw':'88CC99'};
   var LN_PT=15; var LBL_W=18; var VAL_W=38;
   var TOTAL_COLS=10;
-  var rows=_buildExportRows();
-  var wsRowsH=[];
+  var wb=XLSX.utils.book_new();
 
   function estLines(cells){
     var mx=1;
@@ -1620,44 +1622,47 @@ function _doExport(){
     });
     return mx;
   }
-  rows.forEach(function(r,i){
-    wsRowsH[i]={hpt:i===0?22:Math.max(LN_PT,estLines(r)*LN_PT+4)};
-  });
-
-  var wb=XLSX.utils.book_new();
-  var ws=XLSX.utils.aoa_to_sheet(rows);
-  var cols=[];
-  for(var i=0;i<TOTAL_COLS;i++) cols.push({wch:i%2===0?LBL_W:VAL_W});
-  ws['!cols']=cols;
-  ws['!rows']=wsRowsH;
-
-  // 최상단 행 언어별 셀 병합 (A1:B1, C1:D1, ...)
-  ws['!merges']=[
-    {s:{r:0,c:0},e:{r:0,c:1}},
-    {s:{r:0,c:2},e:{r:0,c:3}},
-    {s:{r:0,c:4},e:{r:0,c:5}},
-    {s:{r:0,c:6},e:{r:0,c:7}},
-    {s:{r:0,c:8},e:{r:0,c:9}}
-  ];
 
   var borderSide={style:'thin',color:{rgb:'CCCCCC'}};
   var border={top:borderSide,bottom:borderSide,left:borderSide,right:borderSide};
-  for(var R=0;R<rows.length;R++){
-    for(var C=0;C<TOTAL_COLS;C++){
-      var addr=XLSX.utils.encode_cell({r:R,c:C});
-      if(!ws[addr]) ws[addr]={t:'s',v:''};
-      var lang=lls[Math.floor(C/2)];
-      var isLbl=C%2===0;
-      var fill=R===0?hdrFill[lang]:(isLbl?lblFill[lang]:null);
-      ws[addr].s=Object.assign(
-        fill?{fill:{patternType:'solid',fgColor:{rgb:fill}}}:{},
-        {alignment:{wrapText:true,vertical:'center',horizontal:R===0?'center':'left'},
-         font:{bold:R===0||isLbl,sz:10},
-         border:border}
-      );
+
+  var usedNames={};
+  S.products.forEach(function(p){
+    var rows=_buildProductRows(p);
+    var wsRowsH=[];
+    rows.forEach(function(r,i){
+      wsRowsH[i]={hpt:i===0?22:Math.max(LN_PT,estLines(r)*LN_PT+4)};
+    });
+    var ws=XLSX.utils.aoa_to_sheet(rows);
+    var cols=[];
+    for(var i=0;i<TOTAL_COLS;i++) cols.push({wch:i%2===0?LBL_W:VAL_W});
+    ws['!cols']=cols;
+    ws['!rows']=wsRowsH;
+    ws['!merges']=[
+      {s:{r:0,c:0},e:{r:0,c:1}},{s:{r:0,c:2},e:{r:0,c:3}},
+      {s:{r:0,c:4},e:{r:0,c:5}},{s:{r:0,c:6},e:{r:0,c:7}},
+      {s:{r:0,c:8},e:{r:0,c:9}}
+    ];
+    for(var R=0;R<rows.length;R++){
+      for(var C=0;C<TOTAL_COLS;C++){
+        var addr=XLSX.utils.encode_cell({r:R,c:C});
+        if(!ws[addr]) ws[addr]={t:'s',v:''};
+        var lang=lls[Math.floor(C/2)];
+        var isLbl=C%2===0;
+        var fill=R===0?hdrFill[lang]:(isLbl?lblFill[lang]:null);
+        ws[addr].s=Object.assign(
+          fill?{fill:{patternType:'solid',fgColor:{rgb:fill}}}:{},
+          {alignment:{wrapText:true,vertical:'center',horizontal:R===0?'center':'left'},
+           font:{bold:R===0||isLbl,sz:10},
+           border:border}
+        );
+      }
     }
-  }
-  XLSX.utils.book_append_sheet(wb,ws,'상품정보');
+    var tabName=(p.name||'상품').replace(/[\/\\?*\[\]:]/g,'').substring(0,31)||'상품';
+    if(usedNames[tabName]){usedNames[tabName]++;tabName=tabName.substring(0,28)+'('+usedNames[tabName]+')';}
+    else{usedNames[tabName]=1;}
+    XLSX.utils.book_append_sheet(wb,ws,tabName);
+  });
   var now=new Date();
   var pad=function(n){return ('0'+n).slice(-2);};
   var fn='Formly_'+String(now.getFullYear()).slice(2)+pad(now.getMonth()+1)+pad(now.getDate())+'_'+pad(now.getHours())+pad(now.getMinutes())+'.xlsx';
@@ -1741,18 +1746,30 @@ function _buildGasExportData(){
 function _exportViaGas(gasUrl){
   showToast('구글 시트 저장 중...');
   var data=_buildGasExportData();
-  fetch(gasUrl,{
-    method:'POST',
-    body:JSON.stringify(data)
-  }).then(function(r){return r.json();})
+  var _timer=setTimeout(function(){
+    showToast('응답 없음');
+    alert('GAS가 응답하지 않아요.\nGAS URL을 확인하거나 재배포해주세요.');
+  },30000);
+  fetch(gasUrl,{method:'POST',body:JSON.stringify(data)})
+  .then(function(r){return r.json();})
   .then(function(res){
+    clearTimeout(_timer);
     if(res.ok){
       showToast('구글 시트 저장 완료 ✓');
-      window.open(res.url,'_blank');
+      var a=document.createElement('a');
+      a.href=res.url;a.target='_blank';a.rel='noopener';
+      document.body.appendChild(a);a.click();document.body.removeChild(a);
     } else {
-      showToast('저장 실패: '+(res.error||'알 수 없는 오류'));
+      var msg='저장 실패: '+(res.error||'알 수 없는 오류');
+      showToast(msg);
+      setTimeout(function(){alert(msg);},100);
     }
-  }).catch(function(e){showToast('연결 오류: '+e.message);});
+  }).catch(function(e){
+    clearTimeout(_timer);
+    var msg='연결 오류: '+e.message;
+    showToast(msg);
+    setTimeout(function(){alert(msg);},100);
+  });
 }
 
 // ═══════════════ GS IMPORT ═══════════════
