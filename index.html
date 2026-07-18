@@ -1609,11 +1609,10 @@ function exportFile(){
 }
 function _doExport(){
   var lls=['ko','en','ja','zh-cn','zh-tw'];
-  var lblFill={ko:'F2F2F2',en:'EBF3FF',ja:'FFF2F2','zh-cn':'FFFFFB','zh-tw':'EDFBF2'};
-  var valFill={ko:'DDDDDD',en:'C8DFFF',ja:'FFCCCC','zh-cn':'FFFFAA','zh-tw':'BBEECC'};
-  var hdrFill={ko:'C8C8C8',en:'A8C8F0',ja:'F0AAAA','zh-cn':'E8D870','zh-tw':'88CC99'};
-  var LN_PT=15; var LBL_W=18; var VAL_W=38;
-  var TOTAL_COLS=10;
+  var lblFill={ko:'E8E8E8',en:'D8EEFF',ja:'FAD8D8','zh-cn':'F4EC9C','zh-tw':'C4ECD4'};
+  var hdrFill={ko:'CCCCCC',en:'A8CCF0',ja:'F0AAAA','zh-cn':'E0CC60','zh-tw':'88C8A0'};
+  var LN_PT=15; var LBL_W=18; var VAL_W=38; var MARGIN_W=3;
+  var TOTAL_COLS=10; var TOTAL_W=TOTAL_COLS+2; // 좌우 여백 포함
   var wb=XLSX.utils.book_new();
 
   function estLines(cells){
@@ -1628,49 +1627,73 @@ function _doExport(){
     return mx;
   }
 
+  // 가로선만 (세로선 없음)
   var borderSide={style:'thin',color:{rgb:'CCCCCC'}};
-  var border={top:borderSide,bottom:borderSide,left:borderSide,right:borderSide};
+  var border={top:borderSide,bottom:borderSide};
 
   var usedNames={};
   S.products.forEach(function(p){
     var result=_buildProductRows(p);
     var rows=result.rows; var meta=result.meta;
-    var wsRowsH=[];
+
+    // 좌우 여백 열 + 상단 빈 행 추가
+    var emptyWide=new Array(TOTAL_W).fill('');
+    var wrappedRows=[emptyWide.slice()].concat(
+      rows.map(function(r){return [''].concat(r).concat(['']);})
+    );
+
+    // 행 높이 (wrappedRows 기준, 0=상단여백)
+    var wsRowsH=[{hpt:8}];
     rows.forEach(function(r,i){
       var baseH=i===0?22:Math.max(LN_PT,estLines(r)*LN_PT+4);
       var hpt=baseH;
       if(i>=meta.cauItemStart&&i<=meta.cauItemEnd&&meta.cauItemEnd>=meta.cauItemStart) hpt=baseH*1.15;
       if(i===meta.julRow) hpt=baseH*0.8;
-      wsRowsH[i]={hpt:hpt};
+      wsRowsH.push({hpt:hpt});
     });
-    var ws=XLSX.utils.aoa_to_sheet(rows);
-    var cols=[];
+
+    var ws=XLSX.utils.aoa_to_sheet(wrappedRows);
+
+    // 열 너비: 여백(0), 라벨/값 x5, 여백(11)
+    var cols=[{wch:MARGIN_W}];
     for(var i=0;i<TOTAL_COLS;i++) cols.push({wch:i%2===0?LBL_W:VAL_W});
+    cols.push({wch:MARGIN_W});
     ws['!cols']=cols;
     ws['!rows']=wsRowsH;
-    // 헤더 행 병합 + 줄글 행 병합 (언어쌍 2열씩)
+
+    // 격자선 숨기기
+    ws['!sheetviews']=[{showGridLines:false}];
+
+    // 병합: 헤더행(wrappedRows r=1) + 줄글행 (언어쌍 2열씩, 여백 offset +1)
     var merges=[
-      {s:{r:0,c:0},e:{r:0,c:1}},{s:{r:0,c:2},e:{r:0,c:3}},
-      {s:{r:0,c:4},e:{r:0,c:5}},{s:{r:0,c:6},e:{r:0,c:7}},
-      {s:{r:0,c:8},e:{r:0,c:9}}
+      {s:{r:1,c:1},e:{r:1,c:2}},{s:{r:1,c:3},e:{r:1,c:4}},
+      {s:{r:1,c:5},e:{r:1,c:6}},{s:{r:1,c:7},e:{r:1,c:8}},
+      {s:{r:1,c:9},e:{r:1,c:10}}
     ];
     if(meta.julRow>=0){
-      [0,2,4,6,8].forEach(function(c){
-        merges.push({s:{r:meta.julRow,c:c},e:{r:meta.julRow,c:c+1}});
+      [1,3,5,7,9].forEach(function(c){
+        merges.push({s:{r:meta.julRow+1,c:c},e:{r:meta.julRow+1,c:c+1}});
       });
     }
     ws['!merges']=merges;
-    for(var R=0;R<rows.length;R++){
-      for(var C=0;C<TOTAL_COLS;C++){
+
+    // 셀 스타일 (여백 행/열 제외)
+    var cauHdrDataR=meta.cauItemStart-1; // 주의사항 헤더의 원본 rows 인덱스
+    for(var R=1;R<wrappedRows.length;R++){
+      for(var C=1;C<=TOTAL_COLS;C++){
         var addr=XLSX.utils.encode_cell({r:R,c:C});
         if(!ws[addr]) ws[addr]={t:'s',v:''};
-        var lang=lls[Math.floor(C/2)];
-        var isLbl=C%2===0;
-        var fill=R===0?hdrFill[lang]:(isLbl?lblFill[lang]:null);
+        var dR=R-1; // 원본 rows 인덱스
+        var dC=C-1; // 원본 col 인덱스
+        var lang=lls[Math.floor(dC/2)];
+        var isLbl=dC%2===0;
+        var isCauHdr=dR===cauHdrDataR;
+        var isCauItem=meta.cauItemEnd>=meta.cauItemStart&&dR>=meta.cauItemStart&&dR<=meta.cauItemEnd;
+        var fill=dR===0?hdrFill[lang]:(isCauHdr||isCauItem)?lblFill[lang]:(isLbl?lblFill[lang]:null);
         ws[addr].s=Object.assign(
           fill?{fill:{patternType:'solid',fgColor:{rgb:fill}}}:{},
-          {alignment:{wrapText:true,vertical:'center',horizontal:R===0?'center':'left'},
-           font:{bold:R===0||isLbl,sz:10},
+          {alignment:{wrapText:true,vertical:'center',horizontal:dR===0?'center':'left'},
+           font:{bold:dR===0,sz:10}, // 언어 헤더만 볼드
            border:border}
         );
       }
@@ -1749,12 +1772,23 @@ function _buildGasExportData(){
       }));
     }
 
+    // 줄글 (전체 내용 합친 한 줄, 언어별)
+    var julgeul=lls.map(function(l){
+      var parts=p.fields.filter(function(f){return !f.hidden;}).map(function(f){
+        return getLabel(f,l)+' '+(fmtWithUnit(getFieldVal(f,l),f.unit)||'');
+      });
+      var cauParts=(p.cautions.texts[l]||[]).map(function(t,i){return getSym(p.cautions.style,i)+' '+t;});
+      parts.push(CAU_LBL[l]+' '+cauParts.join(' '));
+      return parts.join(' ');
+    });
+
     return {
       name:prodName,
       langHeaders:lls.map(function(l){return llgrp[l];}),
       fields:fields,
       cautionLabel:cautionLabel,
-      cautionItems:cautionItems
+      cautionItems:cautionItems,
+      julgeul:julgeul
     };
   });
   return {fileName:fileName,products:products};
