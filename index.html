@@ -1551,6 +1551,7 @@ function isKorean(s){return /[가-힣㈜]/.test(s);}
 function _buildExportRows(){
   var lls=['ko','en','ja','zh-cn','zh-tw'];
   var llbls={ko:'국문',en:'English',ja:'日本語','zh-cn':'中文(简体)','zh-tw':'中文(繁體)'};
+  var llgrp={ko:'한국어',en:'영어',ja:'일본어','zh-cn':'중국어(간체)','zh-tw':'중국어(번체)'};
   var TOTAL_COLS=10;
   var rows=[];
   function makePairRow(lblFn,valFn){
@@ -1558,16 +1559,9 @@ function _buildExportRows(){
     lls.forEach(function(l){cells.push(lblFn(l));cells.push(valFn(l));});
     return cells;
   }
-  rows.push(makePairRow(
-    function(l){return llbls[l]+' 항목';},
-    function(l){return llbls[l]+' 내용';}
-  ));
+  // 최상단 언어 그룹 행 (A+B 병합 등은 _doExport에서 처리)
+  var grpRow=[];lls.forEach(function(l){grpRow.push(llgrp[l],'');});rows.push(grpRow);
   S.products.forEach(function(p){
-    if(S.products.length>1){
-      var nameRow=[];
-      lls.forEach(function(){nameRow.push(p.name);nameRow.push('');});
-      rows.push(nameRow);
-    }
     p.fields.filter(function(f){return !f.hidden;}).forEach(function(f){
       rows.push(makePairRow(
         function(l){return getLabel(f,l);},
@@ -1599,7 +1593,7 @@ function exportFile(){
   if(typeof XLSX==='undefined'){
     showToast('로딩 중...');
     var s=document.createElement('script');
-    s.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
     s.onload=function(){_doExport();};
     s.onerror=function(){showToast('오프라인 상태입니다. 네트워크 연결 후 다시 시도해주세요.');};
     document.head.appendChild(s);
@@ -1609,8 +1603,11 @@ function exportFile(){
 }
 function _doExport(){
   var lls=['ko','en','ja','zh-cn','zh-tw'];
-  var pairFill={ko:'DDDDDD',en:'C8DFFF',ja:'FFCCCC','zh-cn':'FFFFAA','zh-tw':'BBEECC'};
-  var LN_PT=14; var LBL_W=12; var VAL_W=26;
+  // 라벨 열(연함) / 값 열 / 헤더 행 색상
+  var lblFill={ko:'F2F2F2',en:'EBF3FF',ja:'FFF2F2','zh-cn':'FFFFFB','zh-tw':'EDFBF2'};
+  var valFill={ko:'DDDDDD',en:'C8DFFF',ja:'FFCCCC','zh-cn':'FFFFAA','zh-tw':'BBEECC'};
+  var hdrFill={ko:'C8C8C8',en:'A8C8F0',ja:'F0AAAA','zh-cn':'E8D870','zh-tw':'88CC99'};
+  var LN_PT=15; var LBL_W=18; var VAL_W=38;
   var TOTAL_COLS=10;
   var rows=_buildExportRows();
   var wsRowsH=[];
@@ -1627,7 +1624,7 @@ function _doExport(){
     return mx;
   }
   rows.forEach(function(r,i){
-    wsRowsH[i]={hpt:Math.max(LN_PT,estLines(r)*LN_PT+4)};
+    wsRowsH[i]={hpt:i===0?22:Math.max(LN_PT,estLines(r)*LN_PT+4)};
   });
 
   var wb=XLSX.utils.book_new();
@@ -1636,22 +1633,38 @@ function _doExport(){
   for(var i=0;i<TOTAL_COLS;i++) cols.push({wch:i%2===0?LBL_W:VAL_W});
   ws['!cols']=cols;
   ws['!rows']=wsRowsH;
+
+  // 최상단 행 언어별 셀 병합 (A1:B1, C1:D1, ...)
+  ws['!merges']=[
+    {s:{r:0,c:0},e:{r:0,c:1}},
+    {s:{r:0,c:2},e:{r:0,c:3}},
+    {s:{r:0,c:4},e:{r:0,c:5}},
+    {s:{r:0,c:6},e:{r:0,c:7}},
+    {s:{r:0,c:8},e:{r:0,c:9}}
+  ];
+
+  var borderSide={style:'thin',color:{rgb:'CCCCCC'}};
+  var border={top:borderSide,bottom:borderSide,left:borderSide,right:borderSide};
   for(var R=0;R<rows.length;R++){
     for(var C=0;C<TOTAL_COLS;C++){
       var addr=XLSX.utils.encode_cell({r:R,c:C});
       if(!ws[addr]) ws[addr]={t:'s',v:''};
-      ws[addr].s={
-        fill:{patternType:'solid',fgColor:{rgb:pairFill[lls[Math.floor(C/2)]]}},
-        alignment:{wrapText:true,vertical:'top'},
-        font:R===0?{bold:true}:undefined
-      };
+      var lang=lls[Math.floor(C/2)];
+      var isLbl=C%2===0;
+      var fill=R===0?hdrFill[lang]:(isLbl?lblFill[lang]:null);
+      ws[addr].s=Object.assign(
+        fill?{fill:{patternType:'solid',fgColor:{rgb:fill}}}:{},
+        {alignment:{wrapText:true,vertical:'center',horizontal:R===0?'center':'left'},
+         font:{bold:R===0||isLbl,sz:10},
+         border:border}
+      );
     }
   }
   XLSX.utils.book_append_sheet(wb,ws,'상품정보');
   var now=new Date();
   var pad=function(n){return ('0'+n).slice(-2);};
   var fn='Formly_'+String(now.getFullYear()).slice(2)+pad(now.getMonth()+1)+pad(now.getDate())+'_'+pad(now.getHours())+pad(now.getMinutes())+'.xlsx';
-  XLSX.writeFile(wb,fn,{cellStyles:true,bookSST:false});
+  XLSX.writeFile(wb,fn,{bookType:'xlsx'});
   showToast('파일 저장 완료');
 }
 
