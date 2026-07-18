@@ -242,16 +242,11 @@ select.form-input{cursor:pointer;-webkit-appearance:none;appearance:none;}
 <!-- 구글 시트 가져오기 모달 -->
 <div id="gs-import-modal" onclick="if(event.target===this)closeGsImportModal()">
   <div class="gs-modal-box">
-    <div class="gs-modal-title">구글 시트 가져오기</div>
-    <div class="gs-modal-desc">
-      Formly에서 내보낸 구글 시트의 URL을 붙여넣으세요.<br>
-      시트의 상품들이 현재 목록에 추가됩니다.
-    </div>
+    <div class="gs-modal-title">불러오기</div>
+    <div class="gs-modal-desc">구글 시트 URL 또는 엑셀(.xlsx) 파일을 선택하세요.</div>
     <input class="gs-url-input" id="gs-import-url-input" placeholder="https://docs.google.com/spreadsheets/d/…">
-    <div id="gs-import-client-wrap" style="display:none;flex-direction:column;gap:8px">
-      <div class="gs-modal-desc" style="color:var(--danger);font-size:11px">OAuth Client ID가 아직 설정되지 않았어요. 아래에 입력해 주세요.</div>
-      <input class="gs-url-input" id="gs-import-client-id-input" placeholder="OAuth 2.0 클라이언트 ID (…apps.googleusercontent.com)">
-    </div>
+    <div style="text-align:center;color:#888;font-size:11px;margin:2px 0">또는</div>
+    <input type="file" id="gs-import-file-input" accept=".xlsx" style="font-size:12px;padding:4px 0">
     <div class="gs-modal-btns">
       <button onclick="closeGsImportModal()">취소</button>
       <button class="gs-save-btn" onclick="confirmGsImport()">가져오기</button>
@@ -282,7 +277,14 @@ select.form-input{cursor:pointer;-webkit-appearance:none;appearance:none;}
       <div style="display:flex;gap:6px;align-items:center">
         <button class="gnb-csv" onclick="exportFile()">Excel로 저장하기</button>
         <button class="gnb-csv" onclick="openGsImportModal()">구글 시트 불러오기</button>
-        <button class="gnb-gsheet" onclick="openGsModal()">구글 시트 내보내기</button>
+        <div style="display:flex;align-items:center;gap:2px">
+          <button class="gnb-gsheet" onclick="openGsModal()">구글 시트 내보내기</button>
+          <select id="gas-mode-select" title="저장 방식" onchange="localStorage.setItem('formly_gas_mode',this.value)"
+            style="font-size:10px;border-radius:4px;border:1px solid #555;background:#1e1e1e;color:#ccc;padding:2px 4px;cursor:pointer;height:26px;outline:none">
+            <option value="combined">한 탭에</option>
+            <option value="tabs">탭별로</option>
+          </select>
+        </div>
       </div>
     </div>
     <div class="gnb-nav">
@@ -357,61 +359,61 @@ select.form-input{cursor:pointer;-webkit-appearance:none;appearance:none;}
 <script>
 // ═══════════════ CONSTANTS ═══════════════
 var FIELD_DEFS=[
-  {key:'name',    labels:{ko:'품명',     en:'Product',            ja:'品名',       'zh-cn':'品名',    'zh-tw':'品名'}},
-  {key:'size',    labels:{ko:'사이즈',   en:'Size',               ja:'サイズ',     'zh-cn':'尺寸',    'zh-tw':'尺寸'}},
-  {key:'weight',  labels:{ko:'무게',     en:'Weight',             ja:'重量',       'zh-cn':'重量',    'zh-tw':'重量'}},
-  {key:'age',     labels:{ko:'사용연령', en:'Age',                ja:'対象年齢',   'zh-cn':'适用年龄','zh-tw':'適用年齡'}},
-  {key:'contents',labels:{ko:'구성',     en:'Contents',           ja:'セット内容', 'zh-cn':'内容物',  'zh-tw':'内容物'}},
-  {key:'material',labels:{ko:'소재',     en:'Materials',          ja:'素材',       'zh-cn':'材质',    'zh-tw':'材質'}},
-  {key:'mfgDate', labels:{ko:'제조연월', en:'Manufacturing Date', ja:'製造年月',   'zh-cn':'生产日期','zh-tw':'生產日期'}},
-  {key:'origin',  labels:{ko:'제조국',   en:'Country of Origin',  ja:'原産国',     'zh-cn':'原产地',  'zh-tw':'原產地'}},
-  {key:'mfr',     labels:{ko:'제조사',   en:'Manufacturer',       ja:'製造元',     'zh-cn':'制造商',  'zh-tw':'製造商'}},
-  {key:'importer',labels:{ko:'수입사',   en:'Importer',           ja:'輸入元',     'zh-cn':'进口商',  'zh-tw':'進口商'}},
-  {key:'dist',    labels:{ko:'판매원',   en:'Distributor',        ja:'販売元',     'zh-cn':'销售商',  'zh-tw':'銷售商'}}
+  {key:'name',    labels:{ko:'품명',     en:'PRODUCT',            ja:'品名',       'zh-cn':'品名',    'zh-tw':'品名'}},
+  {key:'size',    labels:{ko:'사이즈',   en:'SIZE',               ja:'サイズ',     'zh-cn':'尺寸',    'zh-tw':'尺寸'}},
+  {key:'weight',  labels:{ko:'무게',     en:'WEIGHT',             ja:'重量',       'zh-cn':'重量',    'zh-tw':'重量'}},
+  {key:'age',     labels:{ko:'사용연령', en:'AGE',                ja:'対象年齢',   'zh-cn':'适用年龄','zh-tw':'適用年齡'}},
+  {key:'contents',labels:{ko:'구성',     en:'CONTENTS',           ja:'セット内容', 'zh-cn':'内容物',  'zh-tw':'内容物'}},
+  {key:'material',labels:{ko:'소재',     en:'MATERIALS',          ja:'素材',       'zh-cn':'材质',    'zh-tw':'材質'}},
+  {key:'mfgDate', labels:{ko:'제조연월', en:'MANUFACTURING DATE', ja:'製造年月',   'zh-cn':'生产日期','zh-tw':'生產日期'}},
+  {key:'origin',  labels:{ko:'제조국',   en:'COUNTRY OF ORIGIN',  ja:'原産国',     'zh-cn':'原产地',  'zh-tw':'原產地'}},
+  {key:'mfr',     labels:{ko:'제조사',   en:'MANUFACTURER',       ja:'製造元',     'zh-cn':'制造商',  'zh-tw':'製造商'}},
+  {key:'importer',labels:{ko:'수입사',   en:'IMPORTER',           ja:'輸入元',     'zh-cn':'进口商',  'zh-tw':'進口商'}},
+  {key:'dist',    labels:{ko:'판매원',   en:'DISTRIBUTOR',        ja:'販売元',     'zh-cn':'销售商',  'zh-tw':'銷售商'}}
 ];
 
-var CAU_LBL={ko:'주의사항',en:'Cautions',ja:'ご使用上の注意','zh-cn':'注意事项','zh-tw':'注意事項'};
+var CAU_LBL={ko:'주의사항',en:'CAUTIONS',ja:'ご使用上の注意','zh-cn':'注意事项','zh-tw':'注意事項'};
 
 // ─── 주의사항 버전별 기본 문구 ───
 // 인형 (8개)
 var CAUTION_DOLL={
   ko:['본 제품은 완구가 아닙니다.','과도한 힘을 가하거나 뜯지 마십시오.','제품에서 작은 조각이 분리될 경우 삼키지 마십시오.','어린이, 유아 및 반려동물이 제품을 빨거나 물어뜯지 않도록 하십시오.','날카로운 물체와의 접촉을 피하십시오.','고온·다습한 곳, 물, 직사광선 및 화기를 피해 사용·보관하십시오.','세탁하지 마십시오.','용도 외 사용을 금합니다.'],
   en:['This product is not a toy.','Do not apply excessive force or pull the product apart.','If small parts become detached from the product, do not swallow them.','Do not allow children, infants, or pets to suck or bite on the product.','Avoid contact with sharp objects.','Keep away from high temperatures, high humidity, water, direct sunlight, and fire during use and storage.','Do not wash.','Use only for its intended purpose.'],
-  ja:['本製品は玩具ではありません。','過度な力を加えたり、引っ張ったりしないでください。','製品から小さな部品が外れた場合、誤って飲み込まないようご注意ください。','乳幼児、お子様、ペットが本製品を口に入れたり、噛んだりしないようご注意ください。','尖ったものとの接触を避けてください。','高温・多湿な場所、水、直射日光、火気を避けて使用・保管してください。','洗濯しないでください。','用途以外でのご使用はおやめください。'],
-  'zh-cn':['本产品非玩具。','请勿让婴儿、儿童或宠物吮吸或啃咬本产品，避免引起窒息。','请勿将本产品与尖锐物品一同放置, 以免造成损坏。','请避免在高温、潮湿环境下使用或存放本产品。','请注意避免本产品受潮或进水。','请避免将本产品置于阳光直射处或靠近火源，以防止变形或褪色。','请勿水洗。','禁止用于非指定用途。'],
-  'zh-tw':['本產品非玩具。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品，以免造成窒息危險。','請勿將本產品與尖銳物品一同放置，以免造成損壞。','請避免在高溫、潮濕環境下使用或存放本產品。','請注意避免本產品受潮或進水。','請避免將本產品置於陽光直射處或靠近火源，以防止變形或褪色。','請勿水洗。','禁止用於非指定用途。']
+  ja:['本製品は玩具ではありません。','過度な力を加えたり、引っ張ったりしないでください。','製品から小さな部品が外れた場合、誤って飲み込まないようにご注意ください。','乳幼児、お子様、ペットが本製品を口に入れたり、噛んだりしないようにご注意ください。','尖ったものとの接触を避けてください。','高温・多湿な場所、水、直射日光、火気を避けて使用・保管してください。','洗濯しないでください。','用途以外でのご使用はおやめください。'],
+  'zh-cn':['本产品非玩具。','请勿过度用力或撕扯本产品。','如果产品上的小部件脱落，请勿吞咽。','请勿让婴幼儿、儿童或宠物吮吸或啃咬本产品。','请避免与尖锐物品接触。','使用及存放时，请避开高温、潮湿、水、阳光直射及火源。','请勿水洗。','禁止用于非指定用途。'],
+  'zh-tw':['本產品非玩具。','請勿過度用力或撕扯本產品。','若產品上的小零件脫落，請勿吞食。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品。','請避免與尖銳物品接觸。','使用及存放時，請避開高溫、潮濕、水、陽光直射及火源。','請勿水洗。','禁止用於非指定用途。']
 };
 // 지류 및 잡화 (7개)
 var CAUTION_PAPER={
   ko:['본 제품은 완구가 아닙니다.','과도한 힘을 가하거나 뜯지 마십시오.','제품에서 작은 조각이 분리될 경우 삼키지 마십시오.','어린이, 유아 및 반려동물이 제품을 빨거나 물어뜯지 않도록 하십시오.','날카로운 물체와의 접촉을 피하십시오.','고온·다습한 곳, 물, 직사광선 및 화기를 피해 사용·보관하십시오.','용도 외 사용을 금합니다.'],
   en:['This product is not a toy.','Do not apply excessive force or pull the product apart.','If small parts become detached from the product, do not swallow them.','Do not allow children, infants, or pets to suck or bite on the product.','Avoid contact with sharp objects.','Keep away from high temperatures, high humidity, water, direct sunlight, and fire during use and storage.','Do not use for purposes other than intended.'],
   ja:['本製品は玩具ではありません。','過度な力を加えたり、引っ張ったりしないでください。','製品から小さな部品が外れた場合、誤って飲み込まないようにご注意ください。','乳幼児、お子様、ペットが本製品を口に入れたり、噛んだりしないようにご注意ください。','尖ったものとの接触を避けてください。','高温・多湿な場所、水、直射日光、火気を避けて使用・保管してください。','用途以外でのご使用はおやめください。'],
-  'zh-cn':['本产品非玩具。','请勿让婴儿、儿童或宠物吮吸或啃咬本产品，避免引起窒息。','请勿将本产品与尖锐物品一同放置, 以免造成损坏。','请避免在高温、潮湿环境下使用或存放本产品。','请注意避免本产品受潮或进水。','请避免将本产品置于阳光直射处或靠近火源，以防止变形或褪色。','禁止用于非指定用途。'],
-  'zh-tw':['本產品非玩具。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品，以免造成窒息危險。','請勿將本產品與尖銳物品一同放置，以免造成損壞。','請避免在高溫、潮濕環境下使用或存放本產品。','請注意避免本產品受潮或進水。','請避免將本產品置於陽光直射處或靠近火源，以防止變形或褪色。','禁止用於非指定用途。']
+  'zh-cn':['本产品非玩具。','请勿过度用力或撕扯本产品。','如果产品上的小部件脱落，请勿吞咽。','请勿让婴幼儿、儿童或宠物吮吸或啃咬本产品。','请避免与尖锐物品接触。','使用及存放时，请避开高温、潮湿、水、阳光直射及火源。','禁止用于非指定用途。'],
+  'zh-tw':['本產品非玩具。','請勿過度用力或撕扯本產品。','若產品上的小零件脫落，請勿吞食。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品。','請避免與尖銳物品接觸。','使用及存放時，請避開高溫、潮濕、水、陽光直射及火源。','禁止用於非指定用途。']
 };
 // 아크릴류 (8개)
 var CAUTION_ACRYLIC={
   ko:['본 제품은 완구가 아닙니다.','과도한 힘을 가하거나 뜯지 마십시오.','제품에서 작은 조각이 분리될 경우 삼키지 마십시오.','어린이, 유아 및 반려동물이 제품을 빨거나 물어뜯지 않도록 하십시오.','날카로운 물체와의 접촉을 피하십시오.','고온·다습한 곳, 물, 직사광선 및 화기를 피해 사용·보관하십시오.','용도 외 사용을 금합니다.','보호필름이 부착되어 있으니 제거 후 사용하십시오.'],
   en:['This product is not a toy.','Do not apply excessive force or pull the product apart.','If small parts become detached from the product, do not swallow them.','Do not allow children, infants, or pets to suck or bite on the product.','Avoid contact with sharp objects.','Keep away from high temperatures, high humidity, water, direct sunlight, and fire during use and storage.','Do not use for purposes other than intended.','A protective film is attached. Please remove it before use.'],
   ja:['本製品は玩具ではありません。','過度な力を加えたり、引っ張ったりしないでください。','製品から小さな部品が外れた場合、誤って飲み込まないようにご注意ください。','乳幼児、お子様、ペットが本製品を口に入れたり、噛んだりしないようにご注意ください。','尖ったものとの接触を避けてください。','高温・多湿な場所、水、直射日光、火気を避けて使用・保管してください。','用途以外でのご使用はおやめください。','保護フィルムが貼られていますので、剥がしてからご使用ください。'],
-  'zh-cn':['本产品非玩具。','请勿让婴儿、儿童或宠物吮吸或啃咬本产品，避免引起窒息。','请勿将本产品与尖锐物品一同放置, 以免造成损坏。','请避免在高温、潮湿环境下使用或存放本产品。','请注意避免本产品受潮或进水。','请避免将本产品置于阳光直射处或靠近火源，以防止变形或褪色。','禁止用于非指定用途。','产品附有保护膜，请撕除后再使用。'],
-  'zh-tw':['本產品非玩具。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品，以免造成窒息危險。','請勿將本產品與尖銳物品一同放置，以免造成損壞。','請避免在高溫、潮濕環境下使用或存放本產品。','請注意避免本產品受潮或進水。','請避免將本產品置於陽光直射處或靠近火源，以防止變形或褪色。','禁止用於非指定用途。','產品附有保護膜，請撕除後再使用。']
+  'zh-cn':['本产品非玩具。','请勿过度用力或撕扯本产品。','如果产品上的小部件脱落，请勿吞咽。','请勿让婴幼儿、儿童或宠物吮吸或啃咬本产品。','请避免与尖锐物品接触。','使用及存放时，请避开高温、潮湿、水、阳光直射及火源。','禁止用于非指定用途。','产品附有保护膜，请撕除后再使用。'],
+  'zh-tw':['本產品非玩具。','請勿過度用力或撕扯本產品。','若產品上的小零件脫落，請勿吞食。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品。','請避免與尖銳物品接觸。','使用及存放時，請避開高溫、潮濕、水、陽光直射及火源。','禁止用於非指定用途。','產品附有保護膜，請撕除後再使用。']
 };
 // 양말 및 데스크매트 (8개)
 var CAUTION_TEXTILE={
   ko:['본 제품은 완구가 아닙니다.','과도한 힘을 가하거나 뜯지 마십시오.','제품에서 작은 조각이 분리될 경우 삼키지 마십시오.','어린이, 유아 및 반려동물이 제품을 빨거나 물어뜯지 않도록 하십시오.','날카로운 물체와의 접촉을 피하십시오.','고온·다습한 곳, 물, 직사광선 및 화기를 피해 사용·보관하십시오.','용도 외 사용을 금합니다.','오염 시 중성세제를 사용하여 손세척해 주십시오. 세탁기 및 건조기 사용은 피하여 주십시오.'],
   en:['This product is not a toy.','Do not apply excessive force or pull the product apart.','If small parts become detached from the product, do not swallow them.','Do not allow children, infants, or pets to suck or bite on the product.','Avoid contact with sharp objects.','Keep away from high temperatures, high humidity, water, direct sunlight, and fire during use and storage.','Do not use for purposes other than intended.','If the product becomes soiled, hand wash it with a mild detergent. Do not use a washing machine or tumble dryer.'],
   ja:['本製品は玩具ではありません。','過度な力を加えたり、引っ張ったりしないでください。','製品から小さな部品が外れた場合、誤って飲み込まないようにご注意ください。','乳幼児、お子様、ペットが本製品を口に入れたり、噛んだりしないようにご注意ください。','尖ったものとの接触を避けてください。','高温・多湿な場所、水、直射日光、火気を避けて使用・保管してください。','用途以外でのご使用はおやめください。','汚れた場合は、中性洗剤を使用して手洗いしてください。洗濯機および乾燥機の使用はお避けください。'],
-  'zh-cn':['本产品非玩具。','请勿让婴儿、儿童或宠物吮吸或啃咬本产品，避免引起窒息。','请勿将本产品与尖锐物品一同放置, 以免造成损坏。','请避免在高温、潮湿环境下使用或存放本产品。','请注意避免本产品受潮或进水。','请避免将本产品置于阳光直射处或靠近火源，以防止变形或褪色。','禁止用于非指定用途。','如产品沾污，请使用中性洗涤剂手洗。请勿使用洗衣机或烘干机。'],
-  'zh-tw':['本產品非玩具。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品，以免造成窒息危險。','請勿將本產品與尖銳物品一同放置，以免造成損壞。','請避免在高溫、潮濕環境下使用或存放本產品。','請注意避免本產品受潮或進水。','請避免將本產品置於陽光直射處或靠近火源，以防止變形或褪色。','禁止用於非指定用途。','如產品沾污，請使用中性洗滌劑手洗。請勿使用洗衣機或烘乾機。']
+  'zh-cn':['本产品非玩具。','请勿过度用力或撕扯本产品。','如果产品上的小部件脱落，请勿吞咽。','请勿让婴幼儿、儿童或宠物吮吸或啃咬本产品。','请避免与尖锐物品接触。','使用及存放时，请避开高温、潮湿、水、阳光直射及火源。','禁止用于非指定用途。','如产品沾污，请使用中性洗涤剂手洗。请勿使用洗衣机或烘干机。'],
+  'zh-tw':['本產品非玩具。','請勿過度用力或撕扯本產品。','若產品上的小零件脫落，請勿吞食。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品。','請避免與尖銳物品接觸。','使用及存放時，請避開高溫、潮濕、水、陽光直射及火源。','禁止用於非指定用途。','如產品沾污，請使用中性洗滌劑手洗。請勿使用洗衣機或烘乾機。']
 };
 // 티셔츠 (8개)
 var CAUTION_TSHIRT={
   ko:['본 제품은 완구가 아닙니다.','과도한 힘을 가하거나 뜯지 마십시오.','제품에서 작은 조각이 분리될 경우 삼키지 마십시오.','어린이, 유아 및 반려동물이 제품을 빨거나 물어뜯지 않도록 하십시오.','날카로운 물체와의 접촉을 피하십시오.','고온·다습한 곳, 물, 직사광선 및 화기를 피해 사용·보관하십시오.','용도 외 사용을 금합니다.','제품에 부착된 케어라벨(취급주의사항)에 표시된 세탁방법에 따라 세탁해 주십시오.'],
   en:['This product is not a toy.','Do not apply excessive force or pull the product apart.','If small parts become detached from the product, do not swallow them.','Do not allow children, infants, or pets to suck or bite on the product.','Avoid contact with sharp objects.','Keep away from high temperatures, high humidity, water, direct sunlight, and fire during use and storage.','Do not use for purposes other than intended.','Please wash the product according to the care instructions on the attached care label.'],
   ja:['本製品は玩具ではありません。','過度な力を加えたり、引っ張ったりしないでください。','製品から小さな部品が外れた場合、誤って飲み込まないようにご注意ください。','乳幼児、お子様、ペットが本製品を口に入れたり、噛んだりしないようにご注意ください。','尖ったものとの接触を避けてください。','高温・多湿な場所、水、直射日光、火気を避けて使用・保管してください。','用途以外でのご使用はおやめください。','製品に付いているケアラベル（取扱い表示）に記載された洗濯方法に従って洗濯してください。'],
-  'zh-cn':['本产品非玩具。','请勿让婴儿、儿童或宠物吮吸或啃咬本产品，避免引起窒息。','请勿将本产品与尖锐物品一同放置, 以免造成损坏。','请避免在高温、潮湿环境下使用或存放本产品。','请注意避免本产品受潮或进水。','请避免将本产品置于阳光直射处或靠近火源，以防止变形或褪色。','禁止用于非指定用途。','请按照产品所附洗涤护理标签上的洗涤说明进行洗涤。'],
-  'zh-tw':['本產品非玩具。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品，以免造成窒息危險。','請勿將本產品與尖銳物品一同放置，以免造成損壞。','請避免在高溫、潮濕環境下使用或存放本產品。','請注意避免本產品受潮或進水。','請避免將本產品置於陽光直射處或靠近火源，以防止變形或褪色。','禁止用於非指定用途。','請按照產品所附洗滌護理標籤上的洗滌說明進行洗滌。']
+  'zh-cn':['本产品非玩具。','请勿过度用力或撕扯本产品。','如果产品上的小部件脱落，请勿吞咽。','请勿让婴幼儿、儿童或宠物吮吸或啃咬本产品。','请避免与尖锐物品接触。','使用及存放时，请避开高温、潮湿、水、阳光直射及火源。','禁止用于非指定用途。','请按照产品所附洗涤护理标签上的洗涤说明进行洗涤。'],
+  'zh-tw':['本產品非玩具。','請勿過度用力或撕扯本產品。','若產品上的小零件脫落，請勿吞食。','請勿讓嬰幼兒、兒童或寵物吸吮或啃咬本產品。','請避免與尖銳物品接觸。','使用及存放時，請避開高溫、潮濕、水、陽光直射及火源。','禁止用於非指定用途。','請按照產品所附洗滌護理標籤上的洗滌說明進行洗滌。']
 };
 // 심플 (2개)
 var CAUTION_SIMPLE={
@@ -1629,80 +1631,99 @@ function _doExport(){
 
   // 가로선만 (세로선 없음)
   var borderSide={style:'thin',color:{rgb:'CCCCCC'}};
-  var border={top:borderSide,bottom:borderSide};
 
-  var usedNames={};
-  S.products.forEach(function(p){
+  // ── 모든 상품을 한 시트에 세로 나열 ──
+  var allWrapped=[];   // 최종 시트 행
+  var allMeta=[];      // 각 행의 {meta, relR} 또는 null (여백/구분행)
+
+  // 최상단 빈 행
+  allWrapped.push(new Array(TOTAL_W).fill(''));
+  allMeta.push(null);
+
+  S.products.forEach(function(p, idx){
+    // 상품 사이 구분 빈 행
+    if(idx>0){allWrapped.push(new Array(TOTAL_W).fill(''));allMeta.push(null);}
+
     var result=_buildProductRows(p);
     var rows=result.rows; var meta=result.meta;
+    var wrapOffset=allWrapped.length;
 
-    // 좌우 여백 열 + 상단 빈 행 추가
-    var emptyWide=new Array(TOTAL_W).fill('');
-    var wrappedRows=[emptyWide.slice()].concat(
-      rows.map(function(r){return [''].concat(r).concat(['']);})
-    );
-
-    // 행 높이 (wrappedRows 기준, 0=상단여백)
-    var wsRowsH=[{hpt:8}];
-    rows.forEach(function(r,i){
-      var baseH=i===0?22:Math.max(LN_PT,estLines(r)*LN_PT+4);
-      var hpt=baseH;
-      if(i>=meta.cauItemStart&&i<=meta.cauItemEnd&&meta.cauItemEnd>=meta.cauItemStart) hpt=baseH*1.15;
-      if(i===meta.julRow) hpt=baseH*0.8;
-      wsRowsH.push({hpt:hpt});
+    rows.forEach(function(r,relR){
+      allWrapped.push([''].concat(r).concat(['']));
+      allMeta.push({meta:meta,relR:relR,wrapOffset:wrapOffset});
     });
+  });
 
-    var ws=XLSX.utils.aoa_to_sheet(wrappedRows);
+  var ws=XLSX.utils.aoa_to_sheet(allWrapped);
 
-    // 열 너비: 여백(0), 라벨/값 x5, 여백(11)
-    var cols=[{wch:MARGIN_W}];
-    for(var i=0;i<TOTAL_COLS;i++) cols.push({wch:i%2===0?LBL_W:VAL_W});
-    cols.push({wch:MARGIN_W});
-    ws['!cols']=cols;
-    ws['!rows']=wsRowsH;
+  // 열 너비
+  var cols=[{wch:MARGIN_W}];
+  for(var i=0;i<TOTAL_COLS;i++) cols.push({wch:i%2===0?LBL_W:VAL_W});
+  cols.push({wch:MARGIN_W});
+  ws['!cols']=cols;
 
-    // 격자선 숨기기
-    ws['!sheetviews']=[{showGridLines:false}];
+  // 행 높이
+  var wsRowsH=allWrapped.map(function(wr,wI){
+    var info=allMeta[wI];
+    if(!info) return {hpt:8};
+    var relR=info.relR; var meta=info.meta;
+    var baseH=relR===0?22:Math.max(LN_PT,estLines(wr)*LN_PT+4);
+    var hpt=baseH;
+    if(relR>=meta.cauItemStart&&relR<=meta.cauItemEnd&&meta.cauItemEnd>=meta.cauItemStart) hpt=baseH*1.15;
+    if(relR===meta.julRow) hpt=baseH*0.8;
+    return {hpt:hpt};
+  });
+  ws['!rows']=wsRowsH;
 
-    // 병합: 헤더행(wrappedRows r=1) + 줄글행 (언어쌍 2열씩, 여백 offset +1)
-    var merges=[
-      {s:{r:1,c:1},e:{r:1,c:2}},{s:{r:1,c:3},e:{r:1,c:4}},
-      {s:{r:1,c:5},e:{r:1,c:6}},{s:{r:1,c:7},e:{r:1,c:8}},
-      {s:{r:1,c:9},e:{r:1,c:10}}
-    ];
+  // 격자선 숨기기
+  ws['!sheetviews']=[{showGridLines:false}];
+
+  // 병합: 언어헤더(rows[0]) + 줄글행
+  var merges=[];
+  var seenOffsets={};
+  allMeta.forEach(function(info,wI){
+    if(!info) return;
+    var meta=info.meta; var relR=info.relR; var wOff=info.wrapOffset;
+    if(seenOffsets[wOff]) return;
+    seenOffsets[wOff]=true;
+    // 언어 헤더 행: rows[0] → allWrapped[wOff+0]
+    [1,3,5,7,9].forEach(function(c){
+      merges.push({s:{r:wOff,c:c},e:{r:wOff,c:c+1}});
+    });
+    // 줄글 행
     if(meta.julRow>=0){
       [1,3,5,7,9].forEach(function(c){
-        merges.push({s:{r:meta.julRow+1,c:c},e:{r:meta.julRow+1,c:c+1}});
+        merges.push({s:{r:wOff+meta.julRow,c:c},e:{r:wOff+meta.julRow,c:c+1}});
       });
     }
-    ws['!merges']=merges;
-
-    // 셀 스타일 (여백 행/열 제외)
-    var cauHdrDataR=meta.cauItemStart-1; // 주의사항 헤더의 원본 rows 인덱스
-    for(var R=1;R<wrappedRows.length;R++){
-      for(var C=1;C<=TOTAL_COLS;C++){
-        var addr=XLSX.utils.encode_cell({r:R,c:C});
-        if(!ws[addr]) ws[addr]={t:'s',v:''};
-        var dR=R-1; // 원본 rows 인덱스
-        var dC=C-1; // 원본 col 인덱스
-        var lang=lls[Math.floor(dC/2)];
-        var isLbl=dC%2===0;
-        var isCauHdr=dR===cauHdrDataR;
-        var isCauItem=meta.cauItemEnd>=meta.cauItemStart&&dR>=meta.cauItemStart&&dR<=meta.cauItemEnd;
-        var fill=dR===0?hdrFill[lang]:(isCauHdr||isCauItem)?lblFill[lang]:(isLbl?lblFill[lang]:null);
-        ws[addr].s=Object.assign(
-          fill?{fill:{patternType:'solid',fgColor:{rgb:fill}}}:{},
-          {alignment:{wrapText:true,vertical:'center',horizontal:dR===0?'center':'left'},
-           font:{bold:dR===0,sz:10}, // 언어 헤더만 볼드
-           border:border}
-        );
-      }
-    }
-    var tabName=(p.name||'상품').replace(/[\/\\?*\[\]:]/g,'').substring(0,31)||'상품';
-    if(usedNames[tabName]){usedNames[tabName]++;tabName=tabName.substring(0,28)+'('+usedNames[tabName]+')';}
-    else{usedNames[tabName]=1;}
-    XLSX.utils.book_append_sheet(wb,ws,tabName);
   });
+  ws['!merges']=merges;
+
+  // 셀 스타일
+  for(var R=0;R<allWrapped.length;R++){
+    var info=allMeta[R];
+    if(!info) continue;
+    var relR=info.relR; var meta=info.meta;
+    var cauHdrDataR=meta.cauItemStart-1;
+    for(var C=1;C<=TOTAL_COLS;C++){
+      var addr=XLSX.utils.encode_cell({r:R,c:C});
+      if(!ws[addr]) ws[addr]={t:'s',v:''};
+      var dC=C-1;
+      var lang=lls[Math.floor(dC/2)];
+      var isLbl=dC%2===0;
+      var isCauHdr=relR===cauHdrDataR;
+      var isCauItem=meta.cauItemEnd>=meta.cauItemStart&&relR>=meta.cauItemStart&&relR<=meta.cauItemEnd;
+      var fill=relR===0?hdrFill[lang]:(isCauHdr||isCauItem)?lblFill[lang]:(isLbl?lblFill[lang]:null);
+      ws[addr].s=Object.assign(
+        fill?{fill:{patternType:'solid',fgColor:{rgb:fill}}}:{},
+        {alignment:{wrapText:true,vertical:'center',horizontal:relR===0?'center':'left'},
+         font:{bold:relR===0,sz:10},
+         border:{top:borderSide,bottom:borderSide}}
+      );
+    }
+  }
+
+  XLSX.utils.book_append_sheet(wb,ws,'상품정보');
   var now=new Date();
   var pad=function(n){return ('0'+n).slice(-2);};
   var fn='Formly_'+String(now.getFullYear()).slice(2)+pad(now.getMonth()+1)+pad(now.getDate())+'_'+pad(now.getHours())+pad(now.getMinutes())+'.xlsx';
@@ -1720,6 +1741,8 @@ var _GAS_URL_KEY='formly_gas_url';
 
 function openGsModal(){
   if(!S.products.length){showToast('상품이 없습니다');return;}
+  var sel=document.getElementById('gas-mode-select');
+  if(sel) sel.value=localStorage.getItem('formly_gas_mode')||'combined';
   var url=localStorage.getItem(_GAS_URL_KEY);
   if(url){_exportViaGas(url);return;}
   document.getElementById('gs-modal').classList.add('open');
@@ -1791,7 +1814,8 @@ function _buildGasExportData(){
       julgeul:julgeul
     };
   });
-  return {fileName:fileName,products:products};
+  var mode=localStorage.getItem('formly_gas_mode')||'combined';
+  return {fileName:fileName,products:products,mode:mode};
 }
 
 function _exportViaGas(gasUrl){
@@ -1825,64 +1849,81 @@ function _exportViaGas(gasUrl){
 
 // ═══════════════ GS IMPORT ═══════════════
 function openGsImportModal(){
-  var hasClient=!!localStorage.getItem(_OAUTH_CLIENT_KEY);
-  var wrap=document.getElementById('gs-import-client-wrap');
-  if(wrap) wrap.style.display=hasClient?'none':'flex';
   document.getElementById('gs-import-url-input').value='';
+  var fi=document.getElementById('gs-import-file-input');
+  if(fi) fi.value='';
   document.getElementById('gs-import-modal').classList.add('open');
 }
 function closeGsImportModal(){document.getElementById('gs-import-modal').classList.remove('open');}
 
 function confirmGsImport(){
+  // 엑셀 파일 우선
+  var fi=document.getElementById('gs-import-file-input');
+  if(fi&&fi.files&&fi.files[0]){
+    closeGsImportModal();
+    _importFromExcel(fi.files[0]);
+    return;
+  }
+  // 구글 시트 URL
   var url=(document.getElementById('gs-import-url-input').value||'').trim();
-  if(!url){showToast('구글 시트 URL을 입력하세요');return;}
+  if(!url){showToast('URL을 입력하거나 파일을 선택하세요');return;}
   var m=url.match(/\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
   var ssId=m?m[1]:url;
   if(!ssId){showToast('올바른 구글 시트 URL을 입력하세요');return;}
-
-  var clientId=localStorage.getItem(_OAUTH_CLIENT_KEY);
-  var wrap=document.getElementById('gs-import-client-wrap');
-  if(!clientId||wrap.style.display!=='none'){
-    var inp=document.getElementById('gs-import-client-id-input');
-    var cid=(inp&&inp.value.trim())||'';
-    if(!cid){showToast('Client ID를 입력하세요');return;}
-    clientId=cid;
-    localStorage.setItem(_OAUTH_CLIENT_KEY,clientId);
-  }
   closeGsImportModal();
-  _doOAuthImport(clientId,ssId);
+  _readFromGasImport(ssId);
 }
 
-function _doOAuthImport(clientId,ssId){
-  _loadGIS(function(){
-    try{
-      var tc=google.accounts.oauth2.initTokenClient({
-        client_id:clientId,
-        scope:'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
-        callback:function(resp){
-          if(resp.error){showToast('인증 오류: '+resp.error);return;}
-          _gsAccessToken=resp.access_token;
-          _readFromSheets(resp.access_token,ssId);
-        }
-      });
-      tc.requestAccessToken({prompt:_gsAccessToken?'':'select_account'});
-    }catch(e){showToast('OAuth 오류: '+e.message);}
-  });
-}
-
-function _readFromSheets(token,ssId){
+// GAS를 통해 구글 시트 읽기 (OAuth 불필요)
+function _readFromGasImport(ssId){
+  var gasUrl=localStorage.getItem(_GAS_URL_KEY);
+  if(!gasUrl){showToast('GAS URL이 설정되지 않았어요. 구글 시트 내보내기를 먼저 설정해 주세요.');return;}
   showToast('구글 시트 읽는 중…');
-  fetch('https://sheets.googleapis.com/v4/spreadsheets/'+ssId+'/values/'+encodeURIComponent('상품정보'),{
-    headers:{'Authorization':'Bearer '+token}
-  }).then(function(r){
-    if(!r.ok) throw new Error('시트를 읽을 수 없어요. 권한 또는 URL을 확인해 주세요.');
-    return r.json();
-  }).then(function(data){
-    var rows=data.values||[];
-    var products=_parseSheetData(rows);
-    if(!products.length){showToast('가져올 데이터가 없어요');return;}
-    _importProducts(products);
-  }).catch(function(e){showToast(e.message||'가져오기 실패');});
+  var reqUrl=gasUrl+'?action=read&ssId='+encodeURIComponent(ssId);
+  fetch(reqUrl)
+    .then(function(r){return r.json();})
+    .then(function(res){
+      if(!res.ok){showToast('읽기 실패: '+(res.error||'알 수 없는 오류'));return;}
+      var allProds=[];
+      (res.sheets||[]).forEach(function(s){
+        _parseSheetData(s.rows).forEach(function(p){allProds.push(p);});
+      });
+      if(!allProds.length){showToast('가져올 데이터가 없어요');return;}
+      _importProducts(allProds);
+    })
+    .catch(function(e){showToast('연결 오류: '+e.message);});
+}
+
+// 엑셀 파일 불러오기
+function _importFromExcel(file){
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var buf=e.target.result;
+    var doIt=function(){_parseExcelFile(buf);};
+    if(typeof XLSX==='undefined'){
+      showToast('로딩 중...');
+      var s=document.createElement('script');
+      s.src='https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js';
+      s.onload=doIt;
+      s.onerror=function(){showToast('오프라인 상태입니다.');};
+      document.head.appendChild(s);
+    } else { doIt(); }
+  };
+  reader.onerror=function(){showToast('파일 읽기 오류');};
+  reader.readAsArrayBuffer(file);
+}
+function _parseExcelFile(buffer){
+  try{
+    var wb=XLSX.read(buffer,{type:'array'});
+    var allProds=[];
+    wb.SheetNames.forEach(function(name){
+      var ws=wb.Sheets[name];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      _parseSheetData(rows).forEach(function(p){allProds.push(p);});
+    });
+    if(!allProds.length){showToast('가져올 데이터가 없어요');return;}
+    _importProducts(allProds);
+  }catch(e){showToast('파일 읽기 오류: '+e.message);}
 }
 
 var _IMPORT_LABEL_MAP={
@@ -1895,13 +1936,28 @@ var _IMPORT_LANGS=['ko','en','ja','zh-cn','zh-tw'];
 
 function _parseSheetData(rows){
   if(!rows||rows.length<2) return[];
+
+  // 왼쪽 여백 열 자동 감지 (새 포맷: col0 비어있고 col1에 데이터)
+  var co=0; // colOffset
+  for(var _i=0;_i<rows.length;_i++){
+    var _r=rows[_i];
+    if(_r.some(function(x){return(x||'').toString().trim();})){
+      if(!(_r[0]||'').toString().trim()&&(_r[1]||'').toString().trim()) co=1;
+      break;
+    }
+  }
+  function cv(row,idx){return((row[idx+co]||'').toString().trim());}
+  function val(row,li){return cv(row,li*2+1);} // lang value: col (li*2+1)+co
+
   var products=[];
   var curProd=null;
+  var inCaution=false;
 
   function newProd(name){
     curProd=mkProduct(name||'가져온 상품');
     curProd.fields.forEach(function(f){f.hidden=true;});
     products.push(curProd);
+    inCaution=false;
   }
   function getOrMakeField(defKey){
     if(!curProd) newProd();
@@ -1915,41 +1971,52 @@ function _parseSheetData(rows){
   }
 
   rows.forEach(function(row){
-    var c0=(row[0]||'').trim();
-    // 빈 행
-    if(!c0&&!row.slice(1).some(function(c){return(c||'').trim();})) return;
-    // 헤더 행 (항목/내용 포함)
-    if(c0.indexOf('항목')!==-1&&(row[1]||'').indexOf('내용')!==-1) return;
-    // 줄글 행
-    if(c0.indexOf('줄글')!==-1) return;
-    // 주의사항 행
+    // 완전 빈 행
+    if(!row.some(function(x){return(x||'').toString().trim();})){inCaution=false;return;}
+    var c0=cv(row,0);
+    // 헤더 행 (항목/내용)
+    if(c0.indexOf('항목')!==-1&&cv(row,1).indexOf('내용')!==-1) return;
+    // 주의사항 헤더
     if(_CAU_LABEL_SET[c0]){
       if(!curProd) newProd();
-      _IMPORT_LANGS.forEach(function(l,li){
-        var txt=(row[li*2+1]||'').trim();
-        curProd.cautions.texts[l]=txt?txt.split('\n').map(stripSym).filter(Boolean):[];
-      });
+      var koVal=val(row,0);
+      if(koVal){
+        // 구 포맷: 헤더 행에 모든 주의사항이 줄바꿈으로 포함
+        _IMPORT_LANGS.forEach(function(l,li){
+          var txt=val(row,li);
+          curProd.cautions.texts[l]=txt?txt.split('\n').map(stripSym).filter(Boolean):[];
+        });
+        inCaution=false;
+      } else {
+        // 신 포맷: 주의사항이 개별 행으로 분리
+        _IMPORT_LANGS.forEach(function(l){curProd.cautions.texts[l]=[];});
+        inCaution=true;
+      }
       return;
     }
-    // 다중상품 이름 행: label 열들에 같은 이름 반복, value 열은 빔
-    var c2=(row[2]||'').trim();
-    var c1=(row[1]||'').trim();
-    if(c0&&!_IMPORT_LABEL_MAP[c0]&&!_CAU_LABEL_SET[c0]&&!c1&&c2===c0){
-      newProd(c0);return;
+    // 주의사항 항목 행 (신 포맷: c0 비어있고 inCaution 상태)
+    if(inCaution&&!c0){
+      if(curProd){
+        _IMPORT_LANGS.forEach(function(l,li){
+          var v=val(row,li);
+          if(v) curProd.cautions.texts[l].push(stripSym(v));
+        });
+      }
+      return;
     }
+    if(c0) inCaution=false;
+    // 알 수 없는 행 (타이틀, 언어헤더, 줄글 등) 스킵
+    if(!_IMPORT_LABEL_MAP[c0]) return;
     // 필드 행
     var defKey=_IMPORT_LABEL_MAP[c0];
-    if(defKey){
-      if(defKey==='name'&&!curProd) newProd((row[1]||'').trim()||'가져온 상품');
-      var f=getOrMakeField(defKey);
-      if(defKey==='name'&&curProd) curProd.name=(row[1]||'').trim()||curProd.name;
-      _IMPORT_LANGS.forEach(function(l,li){
-        var val=(row[li*2+1]||'').trim();
-        if(val) f.values[l]=val;
-      });
-    }
+    if(defKey==='name'&&!curProd) newProd(val(row,0)||'가져온 상품');
+    var f=getOrMakeField(defKey);
+    if(defKey==='name'&&curProd) curProd.name=val(row,0)||curProd.name;
+    _IMPORT_LANGS.forEach(function(l,li){
+      var v=val(row,li);
+      if(v) f.values[l]=v;
+    });
   });
-  // 단일 상품이고 이름이 기본값이면 품명 필드값으로 대체
   products.forEach(function(p){
     if(p.name==='가져온 상품'){
       var nf=p.fields.find(function(f){return f.defKey==='name';});
@@ -1969,6 +2036,11 @@ function _importProducts(products){
 
 // 우클릭으로 Client ID 재설정
 document.addEventListener('DOMContentLoaded',function(){
+  // 저장 방식 선택 초기화
+  var sel=document.getElementById('gas-mode-select');
+  if(sel) sel.value=localStorage.getItem('formly_gas_mode')||'combined';
+
+  // 우클릭: GAS URL 재설정
   var btn=document.querySelector('.gnb-gsheet');
   if(btn) btn.addEventListener('contextmenu',function(e){
     e.preventDefault();
