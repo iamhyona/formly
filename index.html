@@ -2034,11 +2034,17 @@ function renderContent(){
 
 // ── 필드편집 ──
 function tabFields(p){
+  var lang=_editLang;
   var langPills=LANGS.map(function(l){
-    return '<button class="lang-pill'+(l.code===_editLang?' active':'')+'" onclick="switchEditLang(\''+l.code+'\')">'+l.label+'</button>';
+    return '<button class="lang-pill'+(l.code===lang?' active':'')+'" onclick="switchEditLang(\''+l.code+'\')">'+l.label+'</button>';
   }).join('');
+  var cv=S.settings.cauVersions||CAU_VER_DEF.map(function(v){return{v:v.v,l:v.l};});
+  var ver=p.cautions.version;
+  var verOpts=cv.map(function(v){return'<option value="'+v.v+'"'+(v.v===ver?' selected':'')+'>'+v.l+'</option>';}).join('');
+
   return '<div style="display:flex;gap:6px;margin-bottom:8px;align-items:center;flex-wrap:wrap">'
     +'<button class="preset-btn" style="flex:none;padding:0 14px;border-color:rgba(200,241,53,.5);color:var(--accent)" onclick="openPreview()">미리보기</button>'
+    +'<div class="sel-wrap" style="flex:none"><select class="form-input sm" style="height:28px" onchange="setCauVer(this.value)" title="주의사항 버전">'+verOpts+'</select></div>'
     +'<div style="flex:1"></div>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="undo()">실행취소</button>'
     +'<button class="preset-btn" style="flex:none;padding:0 14px" onclick="openHistoryModal()">저장기록</button>'
