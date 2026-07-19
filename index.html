@@ -560,10 +560,10 @@ var S={
   settings:{
     originOptions:['한국','중국'],
     ageOptions:['3세 이상','6세 이상','12세 이상','14세 이상','15세 이상','18세 이상'],
-    mfrOptions:['㈜사운드웨이브','Hilltop Asia Ltd'],
-    importerOptions:['㈜사운드웨이브','R.O.BOT Co., Ltd.'],
-    distOptions:['㈜사운드웨이브 | 서울특별시 마포구 독막로9길 30, 02-381-3758','㈜갤럭시코퍼레이션 | 서울특별시 영등포구 국제금융로 10'],
-    defaults:{age:'14세 이상',origin:'중국',mfr:'㈜사운드웨이브',importer:'㈜사운드웨이브',dist:'㈜사운드웨이브 | 서울특별시 마포구 독막로9길 30, 02-381-3758'},
+    mfrOptions:['사운드웨이브','Hilltop Asia Ltd'],
+    importerOptions:['사운드웨이브','R.O.BOT Co., Ltd.'],
+    distOptions:['사운드웨이브 | 서울특별시 마포구 독막로9길 30, 02-381-3758','㈜갤럭시코퍼레이션 | 서울특별시 영등포구 국제금융로 10'],
+    defaults:{age:'14세 이상',origin:'중국',mfr:'사운드웨이브',importer:'사운드웨이브',dist:'사운드웨이브 | 서울특별시 마포구 독막로9길 30, 02-381-3758'},
     sizeUnits:['mm','cm'],sizeDefaultUnit:'mm',
     weightUnits:['mg','g','kg'],weightDefaultUnit:'g',
     materialGroups:null,
@@ -729,11 +729,11 @@ function loadSaved(){
   }catch(e){}
   if(!S.settings.originOptions) S.settings.originOptions=['한국','중국'];
   if(!S.settings.ageOptions) S.settings.ageOptions=['3세 이상','6세 이상','12세 이상','14세 이상','15세 이상','18세 이상'];
-  if(!S.settings.mfrOptions) S.settings.mfrOptions=['㈜사운드웨이브','Hilltop Asia Ltd'];
+  if(!S.settings.mfrOptions) S.settings.mfrOptions=['사운드웨이브','Hilltop Asia Ltd'];
   if(S.settings.mfrOptions&&S.settings.mfrOptions.indexOf('Hilltop Asia Ltd')===-1) S.settings.mfrOptions.push('Hilltop Asia Ltd');
-  if(!S.settings.importerOptions) S.settings.importerOptions=['㈜사운드웨이브','R.O.BOT Co., Ltd.'];
+  if(!S.settings.importerOptions) S.settings.importerOptions=['사운드웨이브','R.O.BOT Co., Ltd.'];
   if(S.settings.importerOptions&&S.settings.importerOptions.indexOf('R.O.BOT Co., Ltd.')===-1) S.settings.importerOptions.push('R.O.BOT Co., Ltd.');
-  if(!S.settings.distOptions) S.settings.distOptions=['㈜사운드웨이브 | 서울특별시 마포구 독막로9길 30, 02-381-3758','㈜갤럭시코퍼레이션 | 서울특별시 영등포구 국제금융로 10'];
+  if(!S.settings.distOptions) S.settings.distOptions=['사운드웨이브 | 서울특별시 마포구 독막로9길 30, 02-381-3758','㈜갤럭시코퍼레이션 | 서울특별시 영등포구 국제금융로 10'];
   if(S.settings.distOptions&&S.settings.distOptions.indexOf('㈜갤럭시코퍼레이션 | 서울특별시 영등포구 국제금융로 10')===-1) S.settings.distOptions.push('㈜갤럭시코퍼레이션 | 서울특별시 영등포구 국제금융로 10');
   if(!S.settings.defaults) S.settings.defaults={age:'14세 이상',origin:'중국',mfr:(S.settings.mfrOptions||[])[0]||'',importer:(S.settings.importerOptions||[])[0]||'',dist:(S.settings.distOptions||[])[0]||''};
   if(!S.settings.sizeUnits) S.settings.sizeUnits=['mm','cm'];
@@ -1713,7 +1713,7 @@ function _doExport(){
       var isLbl=dC%2===0;
       var isCauHdr=relR===cauHdrDataR;
       var isCauItem=meta.cauItemEnd>=meta.cauItemStart&&relR>=meta.cauItemStart&&relR<=meta.cauItemEnd;
-      var fill=relR===0?hdrFill[lang]:(isCauHdr||isCauItem)?lblFill[lang]:(isLbl?lblFill[lang]:null);
+      var fill=relR===0?hdrFill[lang]:(!isCauHdr&&!isCauItem&&isLbl)?lblFill[lang]:null;
       ws[addr].s=Object.assign(
         fill?{fill:{patternType:'solid',fgColor:{rgb:fill}}}:{},
         {alignment:{wrapText:true,vertical:'center',horizontal:relR===0?'center':'left'},
